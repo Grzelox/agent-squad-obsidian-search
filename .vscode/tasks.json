@@ -1,0 +1,248 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Start ChromaDB",
+            "type": "shell",
+            "command": "docker-compose",
+            "args": ["up", "-d", "chromadb"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": [],
+            "detail": "Start ChromaDB container in detached mode"
+        },
+        {
+            "label": "Stop ChromaDB",
+            "type": "shell",
+            "command": "docker-compose",
+            "args": ["down"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": [],
+            "detail": "Stop all docker-compose services"
+        },
+        {
+            "label": "ChromaDB Logs",
+            "type": "shell",
+            "command": "docker-compose",
+            "args": ["logs", "-f", "chromadb"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "isBackground": true,
+            "problemMatcher": [],
+            "detail": "Follow ChromaDB container logs"
+        },
+        {
+            "label": "Run Obsidian Agent (Local ChromaDB)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "source .venv/bin/activate && python main.py -v '${input:vaultPath}' -d '${input:destinationPath}'"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "detail": "Run the Obsidian Agent with local ChromaDB storage"
+        },
+        {
+            "label": "Run Obsidian Agent (Remote ChromaDB)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "source .venv/bin/activate && python main.py -v '${input:vaultPath}' -d '${input:destinationPath}' --chroma-host localhost --chroma-port 8000"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "detail": "Run the Obsidian Agent with remote ChromaDB connection",
+            "dependsOn": "Wait for ChromaDB"
+        },
+        {
+            "label": "Wait for ChromaDB",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔄 Waiting for ChromaDB to be ready...' && timeout=60 && elapsed=0 && while ! curl -s http://localhost:8000/docs > /dev/null; do echo \"⏳ Waiting for ChromaDB... (${elapsed}s/${timeout}s)\"; sleep 2; elapsed=$((elapsed + 2)); if [ $elapsed -ge $timeout ]; then echo '❌ ChromaDB failed to start within 60 seconds. Check logs with: docker-compose logs chromadb'; exit 1; fi; done && echo '✅ ChromaDB is ready!'"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": [],
+            "detail": "Wait for ChromaDB to be healthy before starting the agent (with timeout)"
+        },
+        {
+            "label": "Start ChromaDB & Run Agent",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Start ChromaDB",
+                "Run Obsidian Agent (Remote ChromaDB)"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": [],
+            "detail": "Start ChromaDB and run the Obsidian Agent"
+        },
+        {
+            "label": "Open ChromaDB Explorer",
+            "type": "shell",
+            "command": "open",
+            "args": ["http://localhost:8000/docs"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": [],
+            "detail": "Open ChromaDB Swagger UI in browser",
+            "windows": {
+                "command": "start",
+                "args": ["http://localhost:8000/docs"]
+            },
+            "linux": {
+                "command": "xdg-open",
+                "args": ["http://localhost:8000/docs"]
+            }
+        },
+        {
+            "label": "ChromaDB Data Explorer",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "source .venv/bin/activate && python explore_chromadb.py interactive"
+            ],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "detail": "Launch interactive ChromaDB data explorer"
+        },
+        {
+            "label": "Install Dependencies",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "python3 -m venv .venv && source .venv/bin/activate && pip install uv && uv sync"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "detail": "Set up virtual environment and install dependencies"
+        },
+        {
+            "label": "Check ChromaDB Status",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '📊 ChromaDB Status:' && docker-compose ps && echo '\\n🌐 ChromaDB Health:' && (curl -s http://localhost:8000/docs > /dev/null && echo ' ✅ ChromaDB is healthy' || echo ' ❌ ChromaDB not responding')"
+            ],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "problemMatcher": [],
+            "detail": "Check ChromaDB container and connection status"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "vaultPath",
+            "description": "Path to your Obsidian vault",
+            "default": "",
+            "type": "promptString"
+        },
+        {
+            "id": "destinationPath",
+            "description": "Destination path for copied vault",
+            "default": "./vault",
+            "type": "promptString"
+        }
+    ]
+} 

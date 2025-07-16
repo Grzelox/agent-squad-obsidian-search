@@ -1,0 +1,30 @@
+services:
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: obsidian-chromadb
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./chroma_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=/chroma/chroma
+      - ANONYMIZED_TELEMETRY=FALSE
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-s", "http://localhost:8000/docs/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+  vectoradmin:
+    image: fengzhichao/chromadb-admin
+    container_name: obsidian-vectoradmin
+    ports:
+      - "3001:3001"
+    environment:
+      - CHROMA_URL=http://chromadb:8000
+    depends_on:
+      - chromadb
+    restart: unless-stopped 

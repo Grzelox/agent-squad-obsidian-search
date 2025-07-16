@@ -1,3 +1,6 @@
+vault/
+chroma_data/
+
 chroma_db/
 logs/
 # Byte-compiled / optimized / DLL files
