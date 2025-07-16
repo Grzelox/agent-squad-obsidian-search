@@ -6,7 +6,7 @@ An intelligent search agent that copies your Obsidian vault, indexes it using ve
 
 1. **Python ≥3.13**
 2. **Ollama** - Download from [ollama.ai](https://ollama.ai)
-3. **Docker** (optional) - For ChromaDB web interface
+3. **Docker** (optional, ChromaDB and ChromaDB Admin Dashboard)
 
 ### Install Required Ollama Models
 ```bash
@@ -43,7 +43,7 @@ python main.py -v "/path/to/your/obsidian/vault" --verbose
 python main.py -v "/path/to/your/obsidian/vault" --quiet
 ```
 
-### Docker ChromaDB (Recommended - includes web interface)
+### Docker ChromaDB
 ```bash
 # Start ChromaDB container
 docker-compose up -d
@@ -60,16 +60,16 @@ python main.py -v "/path/to/your/obsidian/vault" --chroma-host localhost --chrom
 
 ### Output Modes
 
-**🔇 Quiet Mode (`--quiet`)**
+**Quiet Mode (`--quiet`)**
 - Clean, minimal output with only essential messages
 - No log timestamps or technical details
 - Perfect for scripts or when you want minimal noise
 
-**📝 Standard Mode (default)**
+**Standard Mode (default)**
 - **White**: Regular application messages (copying, questions, answers)  
 - **🟢 Green**: Standard log messages (INFO, WARNING, ERROR)
 
-**🔍 Verbose Mode (`--verbose`)**
+**Verbose Mode (`--verbose`)**
 - **White**: Regular application messages (copying, questions, answers)
 - **🟢 Green**: Standard log messages (INFO, WARNING, ERROR)
 - **🔵 Blue**: Detailed debugging info with `[VERBOSE]` prefix
@@ -113,3 +113,49 @@ Type `quit` to exit.
 **Docker ChromaDB**: Remote server with web interface
 - Web admin interface at http://localhost:3001
 - Requires Docker
+
+## ChromaDB Admin Interface
+
+When using Docker, the setup includes a ChromaDB admin interface that provides a web-based GUI for managing your vector database.
+
+### Container Architecture
+
+The `docker-compose.yml` includes two containers:
+
+1. **ChromaDB Container** (`chromadb`):
+   - Runs ChromaDB server on port 8000
+   - Stores vector embeddings and metadata
+   - Accessible at `http://localhost:8000`
+
+2. **ChromaDB Admin Container**:
+   - Provides web interface for ChromaDB
+   - Accessible at `http://localhost:3001`
+   - Connects to ChromaDB using internal Docker networking
+
+### Docker Container Communication
+
+**Important**: The admin container connects to ChromaDB using the **service name** as hostname:
+
+```bash
+CHROMADB_CONN_STR=http://chromadb:8000 
+```
+
+### Setup Instructions
+
+1. **Start the containers**:
+   ```bash
+   docker-compose up -d
+   ```
+
+2. **Verify containers are running**:
+   ```bash
+   docker-compose ps
+   ```
+
+3. **Access the admin interface**:
+   - Open your browser to `http://localhost:3001`
+
+4. **Run your agent**:
+   ```bash
+   python main.py -v "/path/to/vault" --chroma-host localhost --chroma-port 8000
+   ```
