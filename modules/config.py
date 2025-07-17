@@ -18,10 +18,14 @@ def get_config():
     config = {}
     for key in CONFIG_KEYS:
         value = os.getenv(key)
-        if value is not None:
+        if value is not None and value != "":
             # Convert numeric values to appropriate types
             if key in ["CHUNK_SIZE", "CHUNK_OVERLAP", "RETRIEVAL_K"]:
                 config[key] = int(value)
             else:
+                config[key] = value
+        elif value == "":
+            # Include empty strings for string config values
+            if key not in ["CHUNK_SIZE", "CHUNK_OVERLAP", "RETRIEVAL_K"]:
                 config[key] = value
     return config

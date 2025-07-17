@@ -59,7 +59,7 @@ class ObsidianAgent:
         if chroma_host:
             self.logger.info(f"Using remote ChromaDB at {chroma_host}:{chroma_port}")
         else:
-            self.logger.info(f"Using local ChromaDB at {persist_directory}")
+            self.logger.info(f"Using local ChromaDB at {self.persist_directory}")
 
         self.logger.debug("Initializing embeddings and LLM")
         log_verbose(
