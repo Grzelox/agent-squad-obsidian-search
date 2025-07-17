@@ -1,7 +1,10 @@
 import click
 from pathlib import Path
 
-from modules import ObsidianAgent, VaultCopyService, setup_cli_logger
+from modules import ObsidianAgent, VaultCopyService, setup_cli_logger, get_config
+
+# Load configuration from environment variables
+env_config = get_config()
 
 
 @click.command()
@@ -20,14 +23,14 @@ from modules import ObsidianAgent, VaultCopyService, setup_cli_logger
 @click.option(
     "--model",
     "-m",
-    default="llama3.2",
-    help="Ollama model to use (default: llama3.2)",
+    default=env_config.get("MODEL_NAME", "llama3.2"),
+    help=f"Ollama model to use (default: {env_config.get('MODEL_NAME', 'llama3.2')})",
 )
 @click.option(
     "--embedding-model",
     "-e",
-    default="nomic-embed-text",
-    help="Embedding model to use (default: nomic-embed-text)",
+    default=env_config.get("EMBEDDING_MODEL", "nomic-embed-text"),
+    help=f"Embedding model to use (default: {env_config.get('EMBEDDING_MODEL', 'nomic-embed-text')})",
 )
 @click.option(
     "--rebuild",
@@ -48,8 +51,8 @@ from modules import ObsidianAgent, VaultCopyService, setup_cli_logger
 )
 @click.option(
     "--collection-name",
-    default="obsidian_documents",
-    help="ChromaDB collection name (default: obsidian_documents)",
+    default=env_config.get("COLLECTION_NAME", "obsidian_documents"),
+    help=f"ChromaDB collection name (default: {env_config.get('COLLECTION_NAME', 'obsidian_documents')})",
 )
 @click.option(
     "--verbose",
@@ -77,6 +80,9 @@ def main(
 
     An intelligent search agent that copies your Obsidian vault to a working directory,
     indexes it, and allows you to query your knowledge base using natural language.
+
+    Configuration can be provided via environment variables or CLI arguments.
+    CLI arguments take precedence over environment variables.
 
     Examples:
         python main.py -v "/path/to/vault"
@@ -112,10 +118,15 @@ def main(
         click.echo(f"✓ Vault copied successfully to '{working_vault_path}'")
 
         main_logger.info("Creating ObsidianAgent instance")
+
+        # Use environment config for persist directory if available
+        persist_directory = env_config.get("PERSIST_DIRECTORY", "./chroma_db")
+
         agent = ObsidianAgent(
             obsidian_vault_path=str(working_vault_path),
             model_name=model,
             embedding_model=embedding_model,
+            persist_directory=persist_directory,
             chroma_host=chroma_host,
             chroma_port=chroma_port if chroma_host else None,
             collection_name=collection_name,

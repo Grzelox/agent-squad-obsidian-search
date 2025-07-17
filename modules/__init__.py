@@ -7,6 +7,7 @@ This package contains the core components of the Obsidian AI Search Agent:
 - VectorStoreManager: Vector store operations
 - VaultCopyService: Vault copying operations
 - Logger utilities: Logging setup and configuration
+- Configuration: Environment-based configuration management
 """
 
 from .agent import ObsidianAgent
@@ -14,6 +15,7 @@ from .document_processor import ObsidianDocumentProcessor
 from .vector_store_manager import VectorStoreManager
 from .vault_copy_service import VaultCopyService
 from .logger import setup_agent_logger, setup_cli_logger
+from .config import get_config
 
 __all__ = [
     "ObsidianAgent",
@@ -22,4 +24,5 @@ __all__ = [
     "VaultCopyService",
     "setup_agent_logger",
     "setup_cli_logger",
+    "get_config",
 ]

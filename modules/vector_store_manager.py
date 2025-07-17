@@ -1,11 +1,12 @@
 import os
 import logging
-from typing import List, Optional, Union
+from typing import List, Optional
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
 from langchain.schema import Document
 import chromadb
+from .config import get_config
 
 
 class VectorStoreManager:
@@ -13,21 +14,23 @@ class VectorStoreManager:
 
     def __init__(
         self,
+        logger: logging.Logger,
         embeddings: OllamaEmbeddings,
         persist_directory: str,
-        logger: logging.Logger,
         chroma_host: Optional[str] = None,
         chroma_port: Optional[int] = None,
-        collection_name: str = "obsidian_documents",
+        collection_name: str = "default_collection",
     ):
+        self.logger = logger
         self.embeddings = embeddings
         self.persist_directory = persist_directory
-        self.logger = logger
         self.chroma_host = chroma_host
         self.chroma_port = chroma_port
-        self.collection_name = collection_name
         self.vectorstore: Optional[Chroma] = None
         self.use_remote_client = chroma_host is not None
+
+        self.config = get_config()
+        self.collection_name = self.config.get("COLLECTION_NAME")
 
         self.logger.info(
             f"VectorStoreManager initialized with {'remote' if self.use_remote_client else 'local'} ChromaDB"
@@ -41,10 +44,8 @@ class VectorStoreManager:
         print("Creating vector store...")
 
         try:
-            # Split documents into chunks
             chunks = self._split_documents(documents)
 
-            # Create vector store based on configuration
             if self.use_remote_client:
                 self._create_remote_vectorstore(chunks)
             else:
@@ -70,12 +71,14 @@ class VectorStoreManager:
 
     def _create_remote_vectorstore(self, chunks: List[Document]) -> None:
         """Create remote HTTP client-based vector store."""
+        if not self.chroma_host or not self.chroma_port:
+            raise ValueError("Remote ChromaDB host and port must be specified")
+
         self.logger.debug(
             f"Creating remote Chroma vector store at: {self.chroma_host}:{self.chroma_port}"
         )
 
-        # Create ChromaDB HTTP client
-        client = chromadb.HttpClient(host=self.chroma_host, port=self.chroma_port)
+        client = chromadb.HttpClient(host=self.chroma_host, port=self.chroma_port)  # type: ignore
 
         self.vectorstore = Chroma.from_documents(
             documents=chunks,
@@ -119,15 +122,16 @@ class VectorStoreManager:
 
     def _load_remote_vectorstore(self) -> bool:
         """Load existing remote vector store if it exists."""
+        if not self.chroma_host or not self.chroma_port:
+            raise ValueError("Remote ChromaDB host and port must be specified")
+
         self.logger.debug(
             f"Checking for existing remote vector store at: {self.chroma_host}:{self.chroma_port}"
         )
 
         try:
-            # Create ChromaDB HTTP client
-            client = chromadb.HttpClient(host=self.chroma_host, port=self.chroma_port)
+            client = chromadb.HttpClient(host=self.chroma_host, port=self.chroma_port)  # type: ignore
 
-            # Check if collection exists
             try:
                 collections = client.list_collections()
                 collection_exists = any(
@@ -185,7 +189,9 @@ class VectorStoreManager:
         """Split documents into chunks for better retrieval."""
         self.logger.debug("Initializing text splitter")
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000, chunk_overlap=200, separators=["\n\n", "\n", " ", ""]
+            chunk_size=self.config.get("CHUNK_SIZE", 1000),
+            chunk_overlap=self.config.get("CHUNK_OVERLAP", 200),
+            separators=["\n\n", "\n", " ", ""],
         )
 
         self.logger.debug(f"Splitting {len(documents)} documents into chunks")
