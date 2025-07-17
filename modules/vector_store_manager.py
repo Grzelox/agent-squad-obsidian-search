@@ -30,7 +30,7 @@ class VectorStoreManager:
         self.use_remote_client = chroma_host is not None
 
         self.config = get_config()
-        self.collection_name = self.config.get("COLLECTION_NAME")
+        self.collection_name = self.config.get("COLLECTION_NAME", "obsidian_documents")
 
         self.logger.info(
             f"VectorStoreManager initialized with {'remote' if self.use_remote_client else 'local'} ChromaDB"
