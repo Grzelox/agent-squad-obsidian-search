@@ -19,7 +19,6 @@ class ObsidianDocumentProcessor:
         print(f"Loading documents from {self.vault_path}")
 
         try:
-            # Load markdown files
             self.logger.debug("Initializing DirectoryLoader for markdown files")
             loader = DirectoryLoader(
                 str(self.vault_path),
@@ -31,7 +30,6 @@ class ObsidianDocumentProcessor:
             self.logger.info(f"Successfully loaded {len(documents)} raw documents")
             print(f"Loaded {len(documents)} documents")
 
-            # Process Obsidian-specific content
             self.logger.debug("Starting Obsidian-specific content processing")
             processed_docs = []
             for i, doc in enumerate(documents):
@@ -53,13 +51,13 @@ class ObsidianDocumentProcessor:
 
     def _process_document_content(self, doc: Document) -> Document:
         """Process a single document's content for Obsidian-specific syntax."""
-        # Clean up Obsidian links [[link]] -> link
-        content = re.sub(r"\[\[([^\]]+)\]\]", r"\1", doc.page_content)
-        # Clean up tags #tag -> tag
-        content = re.sub(r"#([a-zA-Z0-9_-]+)", r"\1", content)
-        # Clean up excessive whitespace
-        content = re.sub(r"\n\s*\n", "\n\n", content)
-
+        content = re.sub(
+            r"\[\[([^\]]+)\]\]", r"\1", doc.page_content
+        )  # Clean up Obsidian links [[link]] -> link
+        content = re.sub(
+            r"#([a-zA-Z0-9_-]+)", r"\1", content
+        )  # Clean up tags #tag -> tag
+        content = re.sub(r"\n\s*\n", "\n\n", content)  # Clean up excessive whitespace
         # Update document content and metadata
         doc.page_content = content
         doc.metadata["source"] = str(
