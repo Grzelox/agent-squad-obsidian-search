@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-"""
-Obsidian AI Search Agent - Main Entry Point
-
-A command-line interface for the Obsidian AI Search Agent that indexes your
-Obsidian vault and allows natural language querying using Ollama AI models.
-"""
-
 import click
 from pathlib import Path
 
@@ -69,8 +61,18 @@ from modules import ObsidianAgent, VaultCopyService, setup_cli_logger
     is_flag=True,
     help="Hide all log messages, show only essential output",
 )
-def main(vault_path: str, destination: str, model: str, embedding_model: str, rebuild: bool, 
-         chroma_host: str, chroma_port: int, collection_name: str, verbose: bool, quiet: bool):
+def main(
+    vault_path: str,
+    destination: str,
+    model: str,
+    embedding_model: str,
+    rebuild: bool,
+    chroma_host: str,
+    chroma_port: int,
+    collection_name: str,
+    verbose: bool,
+    quiet: bool,
+):
     """Obsidian AI Agent CLI
 
     An intelligent search agent that copies your Obsidian vault to a working directory,
@@ -85,15 +87,12 @@ def main(vault_path: str, destination: str, model: str, embedding_model: str, re
         python main.py -v "/path/to/vault" --quiet
     """
 
-    # Validate conflicting options
     if verbose and quiet:
         click.echo("Error: --verbose and --quiet cannot be used together", err=True)
         raise click.Abort()
 
-    # Setup CLI logger with verbose and quiet flags
     main_logger = setup_cli_logger(verbose=verbose, quiet=quiet)
-    
-    # Log startup parameters
+
     main_logger.info(
         f"CLI started with source vault: {vault_path}, destination: {destination}, "
         f"model: {model}, embedding: {embedding_model}"
@@ -105,16 +104,13 @@ def main(vault_path: str, destination: str, model: str, embedding_model: str, re
         main_logger.info("Using local ChromaDB storage")
 
     try:
-        # Initialize vault copy service
         vault_copy_service = VaultCopyService(main_logger)
-        
-        # Copy vault to destination
+
         destination_path = Path(destination)
         click.echo(f"Copying vault from '{vault_path}' to '{destination_path}'...")
         working_vault_path = vault_copy_service.copy_vault(vault_path, destination_path)
         click.echo(f"✓ Vault copied successfully to '{working_vault_path}'")
 
-        # Initialize agent with the working vault path and ChromaDB configuration
         main_logger.info("Creating ObsidianAgent instance")
         agent = ObsidianAgent(
             obsidian_vault_path=str(working_vault_path),
@@ -129,12 +125,12 @@ def main(vault_path: str, destination: str, model: str, embedding_model: str, re
 
         agent.initialize(force_rebuild=rebuild)
 
-        # Display ChromaDB explorer info if using remote
         if chroma_host:
-            click.echo(f"\n🌐 ChromaDB Explorer available at: http://{chroma_host}:{chroma_port}")
+            click.echo(
+                f"\n🌐 ChromaDB Explorer available at: http://{chroma_host}:{chroma_port}"
+            )
             click.echo(f"📊 Collection name: {collection_name}")
 
-        # Interactive query loop
         main_logger.info("Starting interactive query session")
         click.echo("\nObsidian AI Agent ready! Type 'quit' to exit.\n")
 

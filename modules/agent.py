@@ -47,7 +47,7 @@ class ObsidianAgent:
         self.logger.info(
             f"Using model: {model_name}, embedding model: {embedding_model}"
         )
-        
+
         # Log ChromaDB configuration
         if chroma_host:
             self.logger.info(f"Using remote ChromaDB at {chroma_host}:{chroma_port}")
@@ -56,7 +56,9 @@ class ObsidianAgent:
 
         # Initialize AI components
         self.logger.debug("Initializing embeddings and LLM")
-        log_verbose(self.logger, f"Creating OllamaEmbeddings with model: {embedding_model}")
+        log_verbose(
+            self.logger, f"Creating OllamaEmbeddings with model: {embedding_model}"
+        )
         self.embeddings = OllamaEmbeddings(model=embedding_model)
         log_verbose(self.logger, f"Creating OllamaLLM with model: {model_name}")
         self.llm = OllamaLLM(model=model_name)
@@ -82,14 +84,14 @@ class ObsidianAgent:
         self.logger.info("=" * 60)
         self.logger.info("STARTING AGENT INITIALIZATION")
         self.logger.info(f"Force rebuild: {force_rebuild}")
-        
+
         # Log connection info
         connection_info = self.vector_store_manager.get_connection_info()
         self.logger.info(f"ChromaDB connection: {connection_info}")
-        
+
         self.logger.info("=" * 60)
         print("Initializing Obsidian AI Agent...")
-        
+
         # Display connection info to user
         if connection_info["type"] == "remote":
             print(f"🔗 Using remote ChromaDB at {connection_info['url']}")
@@ -104,13 +106,17 @@ class ObsidianAgent:
             ):
                 self.logger.info("Using existing vector store")
                 print("Using existing vector store")
-                log_verbose(self.logger, "Loaded existing vector store from persistence layer")
+                log_verbose(
+                    self.logger, "Loaded existing vector store from persistence layer"
+                )
             else:
                 self.logger.info("Building new vector store...")
                 print("Building new vector store...")
                 log_verbose(self.logger, "Starting document loading process")
                 documents = self.document_processor.load_documents()
-                log_verbose(self.logger, f"Loaded {len(documents)} documents for vectorization")
+                log_verbose(
+                    self.logger, f"Loaded {len(documents)} documents for vectorization"
+                )
                 self.vector_store_manager.create_vectorstore(documents)
 
             # Set up QA chain
@@ -139,7 +145,10 @@ class ObsidianAgent:
             self.logger.debug("Invoking QA chain")
             log_verbose(self.logger, "Starting semantic search and retrieval process")
             result = self.qa_chain.invoke({"input": question})
-            log_verbose(self.logger, f"Retrieved {len(result.get('context', []))} document chunks")
+            log_verbose(
+                self.logger,
+                f"Retrieved {len(result.get('context', []))} document chunks",
+            )
 
             # Extract sources and deduplicate while preserving order
             all_sources = [doc.metadata["source"] for doc in result["context"]]

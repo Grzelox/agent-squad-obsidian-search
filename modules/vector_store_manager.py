@@ -73,13 +73,10 @@ class VectorStoreManager:
         self.logger.debug(
             f"Creating remote Chroma vector store at: {self.chroma_host}:{self.chroma_port}"
         )
-        
+
         # Create ChromaDB HTTP client
-        client = chromadb.HttpClient(
-            host=self.chroma_host,
-            port=self.chroma_port
-        )
-        
+        client = chromadb.HttpClient(host=self.chroma_host, port=self.chroma_port)
+
         self.vectorstore = Chroma.from_documents(
             documents=chunks,
             embedding=self.embeddings,
@@ -125,19 +122,18 @@ class VectorStoreManager:
         self.logger.debug(
             f"Checking for existing remote vector store at: {self.chroma_host}:{self.chroma_port}"
         )
-        
+
         try:
             # Create ChromaDB HTTP client
-            client = chromadb.HttpClient(
-                host=self.chroma_host,
-                port=self.chroma_port
-            )
-            
+            client = chromadb.HttpClient(host=self.chroma_host, port=self.chroma_port)
+
             # Check if collection exists
             try:
                 collections = client.list_collections()
-                collection_exists = any(col.name == self.collection_name for col in collections)
-                
+                collection_exists = any(
+                    col.name == self.collection_name for col in collections
+                )
+
                 if collection_exists:
                     self.logger.info(
                         f"Found existing remote collection: {self.collection_name}"
@@ -151,13 +147,15 @@ class VectorStoreManager:
                     self.logger.info("Existing remote vector store loaded successfully")
                     return True
                 else:
-                    self.logger.debug(f"Collection '{self.collection_name}' not found on remote server")
+                    self.logger.debug(
+                        f"Collection '{self.collection_name}' not found on remote server"
+                    )
                     return False
-                    
+
             except Exception as e:
                 self.logger.debug(f"Error checking remote collections: {str(e)}")
                 return False
-                
+
         except Exception as e:
             self.logger.error(f"Failed to connect to remote ChromaDB: {str(e)}")
             raise
@@ -174,13 +172,13 @@ class VectorStoreManager:
                 "host": self.chroma_host,
                 "port": self.chroma_port,
                 "collection": self.collection_name,
-                "url": f"http://{self.chroma_host}:{self.chroma_port}"
+                "url": f"http://{self.chroma_host}:{self.chroma_port}",
             }
         else:
             return {
                 "type": "local",
                 "persist_directory": self.persist_directory,
-                "collection": "default"
+                "collection": "default",
             }
 
     def _split_documents(self, documents: List[Document]) -> List[Document]:
