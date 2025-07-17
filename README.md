@@ -32,7 +32,7 @@ uv sync
 
 ## Quick Start
 
-### Local Storage (Simple)
+### Local Storage
 ```bash
 python main.py -v "/path/to/your/obsidian/vault"
 
@@ -107,7 +107,6 @@ Type `quit` to exit.
 ## ChromaDB Options
 
 **Local Storage**: File-based storage in `./chroma_db`
-- Simple setup
 - No web interface
 
 **Docker ChromaDB**: Remote server with web interface
