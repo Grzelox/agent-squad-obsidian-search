@@ -20,15 +20,15 @@ class ObsidianAgent:
         model_name: Optional[str] = None,
         embedding_model: Optional[str] = None,
         persist_directory: Optional[str] = None,
-        log_file: str = "obsidian_agent.log",
+        log_file: Optional[str] = None,
         chroma_host: Optional[str] = None,
         chroma_port: Optional[int] = None,
         collection_name: Optional[str] = None,
         verbose: bool = False,
         quiet: bool = False,
     ):
-        # Load configuration from environment variables
         config = get_config()
+        self.log_file = log_file or config.get("LOGS_FILE")
 
         self.obsidian_vault_path = Path(obsidian_vault_path)
         self.model_name = model_name or config.get("MODEL_NAME", "llama3.2")
@@ -38,7 +38,6 @@ class ObsidianAgent:
         self.persist_directory = persist_directory or config.get(
             "PERSIST_DIRECTORY", "./chroma_db"
         )
-        self.log_file = log_file
         self.chroma_host = chroma_host
         self.chroma_port = chroma_port
         self.collection_name = collection_name or config.get(
@@ -47,7 +46,7 @@ class ObsidianAgent:
         self.verbose = verbose
         self.quiet = quiet
 
-        self.logger = setup_agent_logger(log_file, str(id(self)), verbose, quiet)
+        self.logger = setup_agent_logger(self.log_file, str(id(self)), verbose, quiet)
 
         self.logger.info(
             f"Initializing ObsidianAgent with vault: {obsidian_vault_path}"
@@ -181,7 +180,6 @@ class ObsidianAgent:
             raise ValueError("Vector store not initialized")
 
         try:
-            # Load config for retrieval parameters
             config = get_config()
             retrieval_k = config.get("RETRIEVAL_K", 5)
 

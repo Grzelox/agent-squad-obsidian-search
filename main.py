@@ -3,7 +3,6 @@ from pathlib import Path
 
 from modules import ObsidianAgent, VaultCopyService, setup_cli_logger, get_config
 
-# Load configuration from environment variables
 env_config = get_config()
 
 
@@ -119,7 +118,6 @@ def main(
 
         main_logger.info("Creating ObsidianAgent instance")
 
-        # Use environment config for persist directory if available
         persist_directory = env_config.get("PERSIST_DIRECTORY", "./chroma_db")
 
         agent = ObsidianAgent(

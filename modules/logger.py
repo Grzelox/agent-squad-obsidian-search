@@ -2,6 +2,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 import sys
+from typing_extensions import Optional
 
 
 class ColoredFormatter(logging.Formatter):
@@ -39,8 +40,8 @@ class ColoredFormatter(logging.Formatter):
 
 
 def setup_agent_logger(
-    log_file: str = "obsidian_agent.log",
-    agent_id: str = None,
+    log_file: str,
+    agent_id: Optional[str] = None,
     verbose: bool = False,
     quiet: bool = False,
 ) -> logging.Logger:
