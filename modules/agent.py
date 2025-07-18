@@ -69,7 +69,7 @@ class ObsidianAgent:
         self.llm = OllamaLLM(model=self.model_name)
 
         self.document_processor = ObsidianDocumentProcessor(
-            self.obsidian_vault_path, self.logger
+            self.obsidian_vault_path, self.logger, self.llm
         )
         self.vector_store_manager = VectorStoreManager(
             embeddings=self.embeddings,
@@ -149,18 +149,47 @@ class ObsidianAgent:
                 f"Retrieved {len(result.get('context', []))} document chunks",
             )
 
-            all_sources = [doc.metadata["source"] for doc in result["context"]]
-            sources = list(dict.fromkeys(all_sources))
+            # Process sources and categorize by content type
+            all_sources = []
+            summary_sources = []
+            original_sources = []
+            
+            for doc in result["context"]:
+                source_info = {
+                    'source': doc.metadata["source"],
+                    'is_summary': doc.metadata.get('is_summary', False),
+                    'content_type': doc.metadata.get('content_type', 'original')
+                }
+                all_sources.append(source_info)
+                
+                if doc.metadata.get('is_summary', False):
+                    summary_sources.append(doc.metadata["source"])
+                else:
+                    # Get the base source name (remove any path info for deduplication)
+                    base_source = doc.metadata["source"]
+                    original_sources.append(base_source)
+
+            # Remove duplicates while preserving order
+            unique_original_sources = list(dict.fromkeys(original_sources))
+            unique_summary_sources = list(dict.fromkeys(summary_sources))
+            all_unique_sources = list(dict.fromkeys([info['source'] for info in all_sources]))
 
             self.logger.info(
-                f"Query processed successfully. Found {len(all_sources)} chunks from {len(sources)} unique source documents"
+                f"Query processed successfully. Found {len(all_sources)} chunks from {len(all_unique_sources)} sources"
             )
-            self.logger.debug(f"All sources: {all_sources}")
-            self.logger.debug(f"Unique sources: {sources}")
+            if unique_summary_sources:
+                self.logger.info(f"Retrieved {len(unique_summary_sources)} summary documents")
+            if unique_original_sources:
+                self.logger.info(f"Retrieved {len(unique_original_sources)} original documents")
 
             response = {
                 "answer": result["answer"],
-                "sources": sources,
+                "sources": all_unique_sources,
+                "source_details": {
+                    "original_sources": unique_original_sources,
+                    "summary_sources": unique_summary_sources,
+                    "total_chunks": len(all_sources)
+                }
             }
 
             self.logger.debug(f"Answer length: {len(result['answer'])} characters")
@@ -212,3 +241,60 @@ class ObsidianAgent:
         except Exception as e:
             self.logger.error(f"Error setting up QA chain: {str(e)}")
             raise
+
+    def get_document_summaries(self) -> dict:
+        """Retrieve all document summaries from the vector store."""
+        try:
+            vectorstore = self.vector_store_manager.get_vectorstore()
+            if not vectorstore:
+                return {}
+            
+            # Get all documents and extract summaries
+            all_docs = vectorstore.get()
+            summaries = {}
+            
+            for i, metadata in enumerate(all_docs.get('metadatas', [])):
+                if metadata and metadata.get('is_summary', False):
+                    # This is a summary document
+                    original_source = metadata.get('original_source', f'document_{i}')
+                    summary_text = all_docs.get('documents', [])[i] if all_docs.get('documents') else ''
+                    
+                    summaries[original_source] = {
+                        'summary': summary_text,
+                        'word_count': metadata.get('original_word_count', 'unknown'),
+                        'summary_word_count': metadata.get('word_count', 'unknown'),
+                        'summary_model': metadata.get('summary_model', 'unknown')
+                    }
+            
+            self.logger.info(f"Retrieved {len(summaries)} document summaries")
+            return summaries
+            
+        except Exception as e:
+            self.logger.error(f"Error retrieving document summaries: {str(e)}")
+            return {}
+
+    def get_summary_for_document(self, document_path: str) -> Optional[str]:
+        """Get the summary for a specific document."""
+        summaries = self.get_document_summaries()
+        return summaries.get(document_path, {}).get('summary')
+
+    def get_summarized_documents_stats(self) -> dict:
+        """Get statistics about summarized documents."""
+        summaries = self.get_document_summaries()
+        
+        if not summaries:
+            return {'total_summaries': 0, 'avg_word_count': 0, 'documents': []}
+        
+        word_counts = []
+        for info in summaries.values():
+            wc = info.get('word_count', 0)
+            if isinstance(wc, int):
+                word_counts.append(wc)
+            elif isinstance(wc, str) and wc.isdigit():
+                word_counts.append(int(wc))
+        
+        return {
+            'total_summaries': len(summaries),
+            'avg_word_count': sum(word_counts) // len(word_counts) if word_counts else 0,
+            'documents': list(summaries.keys())
+        }

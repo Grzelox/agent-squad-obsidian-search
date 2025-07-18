@@ -81,7 +81,32 @@ python main.py -v "/path/to/your/obsidian/vault" --chroma-host localhost --chrom
 The agent will:
 1. Copy your vault to a working directory (preserves original)
 2. Process and index your documents
-3. Start an interactive Q&A session
+3. Optionally generate summaries for long documents (if enabled)
+4. Start an interactive Q&A session
+
+### Document Summarization
+
+The agent can automatically generate concise summaries for long documents during indexing:
+
+```bash
+# Enable summarization with default settings (500+ words)
+python main.py -v "/path/to/vault" --enable-summarization
+
+# Enable summarization with custom word threshold
+python main.py -v "/path/to/vault" --enable-summarization --summarization-min-words 300
+
+# Use with remote ChromaDB and summarization
+python main.py -v "/path/to/vault" --chroma-host localhost --enable-summarization --verbose
+```
+
+**Summarization Features:**
+- **Automatic detection**: Only documents above the word threshold are summarized
+- **Intelligent summaries**: AI-generated summaries focus on key concepts and main ideas
+- **Vectorized summaries**: Summaries are embedded and stored in vector database for semantic search
+- **Hybrid retrieval**: Search results can include both original content and summary content
+- **Special commands**: Use `summaries` and `stats` commands in the interactive session
+- **Enhanced search results**: Clear distinction between original and summary content in results
+- **Searchable summaries**: Ask questions that might be better answered by summary content
 
 ### Key Command Options
 
@@ -94,13 +119,27 @@ The agent will:
 | `-r, --rebuild` | Force rebuild vector store | `False` |
 | `--chroma-host` | ChromaDB host for remote connection | `None` |
 | `--chroma-port` | ChromaDB port | `8000` |
+| `--enable-summarization` | Enable document summarization | `False` |
+| `--summarization-min-words` | Min words for summarization | `500` |
 | `--verbose` | Enable detailed logging (blue), standard logs are green | `False` |
 | `--quiet` | Hide all log messages, show only essential output | `False` |
 
 ### Example Queries
 - "What are my notes about machine learning?"
-- "Summarize my meeting notes from last week"
+- "Summarize my meeting notes from last week"  
 - "Tell me about the project ideas I've written down"
+- "What are the main themes in my research?" (may retrieve summary content)
+- "Give me an overview of my thoughts on productivity" (benefits from summary search)
+
+**Special Commands (when summarization is enabled):**
+- Type `summaries` to view all document summaries
+- Type `stats` to see summarization statistics
+
+**Enhanced Search Results:**
+When summarization is enabled, search results clearly show:
+- 📄 **Original content**: Chunks from actual document text
+- 🎯 **Summary content**: AI-generated summaries when they're most relevant
+- 📊 **Retrieval statistics**: Total chunks from both content types
 
 Type `quit` to exit.
 
