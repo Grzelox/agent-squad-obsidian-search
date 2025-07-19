@@ -4,6 +4,7 @@ from langchain.schema import Document
 from langchain_ollama import OllamaLLM
 
 from modules.document_processor import ObsidianDocumentProcessor
+from modules.config import AppConfig
 
 
 class TestObsidianDocumentProcessor:
@@ -30,26 +31,26 @@ class TestObsidianDocumentProcessor:
     def processor(self, vault_path, mock_logger):
         """Create an ObsidianDocumentProcessor instance for testing."""
         with patch("modules.document_processor.get_config") as mock_config:
-            mock_config.return_value = {
-                "MARKDOWN_MODE": "single",
-                "MARKDOWN_STRATEGY": "auto",
-                "SUMMARIZATION_ENABLED": False,
-                "SUMMARIZATION_MIN_WORDS": 500,
-                "SUMMARIZATION_MAX_LENGTH": 200,
-            }
+            config = AppConfig()
+            config.markdown_mode = "single"
+            config.markdown_strategy = "auto"
+            config.summarization_enabled = False
+            config.summarization_min_words = 500
+            config.summarization_max_length = 200
+            mock_config.return_value = config
             return ObsidianDocumentProcessor(vault_path, mock_logger)
 
     @pytest.fixture
     def processor_with_summarization(self, vault_path, mock_logger, mock_llm):
         """Create an ObsidianDocumentProcessor instance with summarization enabled."""
         with patch("modules.document_processor.get_config") as mock_config:
-            mock_config.return_value = {
-                "MARKDOWN_MODE": "elements",
-                "MARKDOWN_STRATEGY": "hi_res",
-                "SUMMARIZATION_ENABLED": True,
-                "SUMMARIZATION_MIN_WORDS": 100,
-                "SUMMARIZATION_MAX_LENGTH": 50,
-            }
+            config = AppConfig()
+            config.markdown_mode = "elements"
+            config.markdown_strategy = "hi_res"
+            config.summarization_enabled = True
+            config.summarization_min_words = 100
+            config.summarization_max_length = 50
+            mock_config.return_value = config
             return ObsidianDocumentProcessor(vault_path, mock_logger, mock_llm)
 
     @pytest.fixture
@@ -70,39 +71,39 @@ class TestObsidianDocumentProcessor:
     def test_init_basic(self, vault_path, mock_logger):
         """Test basic ObsidianDocumentProcessor initialization."""
         with patch("modules.document_processor.get_config") as mock_config:
-            mock_config.return_value = {
-                "MARKDOWN_MODE": "single",
-                "MARKDOWN_STRATEGY": "auto",
-                "SUMMARIZATION_ENABLED": False,
-                "SUMMARIZATION_MIN_WORDS": 500,
-                "SUMMARIZATION_MAX_LENGTH": 200,
-            }
+            config = AppConfig()
+            config.markdown_mode = "single"
+            config.markdown_strategy = "auto"
+            config.summarization_enabled = False
+            config.summarization_min_words = 500
+            config.summarization_max_length = 200
+            mock_config.return_value = config
             processor = ObsidianDocumentProcessor(vault_path, mock_logger)
 
         assert processor.vault_path == vault_path
         assert processor.logger == mock_logger
-        assert processor.markdown_mode == "single"
-        assert processor.markdown_strategy == "auto"
-        assert processor.summarization_enabled == False
+        assert processor.config.markdown_mode == "single"
+        assert processor.config.markdown_strategy == "auto"
+        assert processor.config.summarization_enabled == False
         assert processor.llm is None
 
     def test_init_with_summarization(self, vault_path, mock_logger, mock_llm):
         """Test initialization with summarization enabled."""
         with patch("modules.document_processor.get_config") as mock_config:
-            mock_config.return_value = {
-                "MARKDOWN_MODE": "elements",
-                "MARKDOWN_STRATEGY": "hi_res",
-                "SUMMARIZATION_ENABLED": True,
-                "SUMMARIZATION_MIN_WORDS": 300,
-                "SUMMARIZATION_MAX_LENGTH": 100,
-            }
+            config = AppConfig()
+            config.markdown_mode = "elements"
+            config.markdown_strategy = "hi_res"
+            config.summarization_enabled = True
+            config.summarization_min_words = 300
+            config.summarization_max_length = 100
+            mock_config.return_value = config
             processor = ObsidianDocumentProcessor(vault_path, mock_logger, mock_llm)
 
-        assert processor.markdown_mode == "elements"
-        assert processor.markdown_strategy == "hi_res"
-        assert processor.summarization_enabled == True
-        assert processor.min_words_for_summary == 300
-        assert processor.max_summary_length == 100
+        assert processor.config.markdown_mode == "elements"
+        assert processor.config.markdown_strategy == "hi_res"
+        assert processor.config.summarization_enabled == True
+        assert processor.config.summarization_min_words == 300
+        assert processor.config.summarization_max_length == 100
         assert processor.llm == mock_llm
 
     def test_load_documents_no_files(self, processor, vault_path):
@@ -339,14 +340,14 @@ class TestObsidianDocumentProcessor:
     def test_elements_mode_processing(self, vault_path, mock_logger):
         """Test processing with elements mode."""
         with patch("modules.document_processor.get_config") as mock_config:
-            mock_config.return_value = {
-                "MARKDOWN_MODE": "elements",
-                "MARKDOWN_STRATEGY": "hi_res",
-                "SUMMARIZATION_ENABLED": False,
-                "SUMMARIZATION_MIN_WORDS": 500,
-                "SUMMARIZATION_MAX_LENGTH": 200,
-            }
+            config = AppConfig()
+            config.markdown_mode = "elements"
+            config.markdown_strategy = "hi_res"
+            config.summarization_enabled = False
+            config.summarization_min_words = 500
+            config.summarization_max_length = 200
+            mock_config.return_value = config
             processor = ObsidianDocumentProcessor(vault_path, mock_logger)
 
-            assert processor.markdown_mode == "elements"
-            assert processor.markdown_strategy == "hi_res"
+            assert processor.config.markdown_mode == "elements"
+            assert processor.config.markdown_strategy == "hi_res"

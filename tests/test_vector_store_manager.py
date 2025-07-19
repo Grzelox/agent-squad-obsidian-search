@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 from langchain.schema import Document
 
 from modules.vector_store_manager import VectorStoreManager
+from modules.config import AppConfig
 
 
 class TestVectorStoreManager:
@@ -21,11 +22,11 @@ class TestVectorStoreManager:
     @pytest.fixture
     def mock_config(self):
         """Create a mock configuration."""
-        return {
-            "COLLECTION_NAME": "test_collection",
-            "CHUNK_SIZE": 1000,
-            "CHUNK_OVERLAP": 200,
-        }
+        config = AppConfig()
+        config.collection_name = "test_collection"
+        config.chunk_size = 1000
+        config.chunk_overlap = 200
+        return config
 
     @pytest.fixture
     def sample_documents(self):
@@ -75,7 +76,7 @@ class TestVectorStoreManager:
         assert manager.chroma_port is None
         assert manager.vectorstore is None
         assert not manager.use_remote_client
-        assert manager.collection_name == "test_collection"
+        assert manager.config.collection_name == "test_collection"
         mock_logger.info.assert_called()
 
     @patch("modules.vector_store_manager.get_config")
@@ -98,7 +99,7 @@ class TestVectorStoreManager:
         assert manager.chroma_port == 8000
         assert manager.use_remote_client
         assert (
-            manager.collection_name == "test_collection"
+            manager.config.collection_name == "test_collection"
         )  # From config, not parameter
         mock_logger.info.assert_any_call(
             "VectorStoreManager initialized with remote ChromaDB"
@@ -629,11 +630,10 @@ class TestVectorStoreManager:
         sample_documents,
     ):
         """Test document splitting with custom configuration."""
-        custom_config = {
-            "COLLECTION_NAME": "test_collection",
-            "CHUNK_SIZE": 500,
-            "CHUNK_OVERLAP": 100,
-        }
+        custom_config = AppConfig()
+        custom_config.collection_name = "test_collection"
+        custom_config.chunk_size = 500
+        custom_config.chunk_overlap = 100
         mock_get_config.return_value = custom_config
 
         mock_splitter = Mock()
@@ -663,9 +663,9 @@ class TestVectorStoreManager:
         sample_documents,
     ):
         """Test document splitting with default configuration when config values are missing."""
-        incomplete_config = {
-            "COLLECTION_NAME": "test_collection"
-        }  # Missing CHUNK_SIZE and CHUNK_OVERLAP
+        incomplete_config = AppConfig()
+        incomplete_config.collection_name = "test_collection"
+        # chunk_size and chunk_overlap will use default values from AppConfig
         mock_get_config.return_value = incomplete_config
 
         mock_splitter = Mock()

@@ -2,325 +2,292 @@ import pytest
 import os
 from unittest.mock import patch, Mock
 
-from modules.config import get_config, CONFIG_KEYS
+from modules.config import get_config, AppConfig
 
 
-class TestConfig:
-    """Test cases for config module."""
+class TestAppConfig:
+    """Test cases for AppConfig dataclass."""
 
-    def test_config_keys_list(self):
-        """Test that CONFIG_KEYS contains expected configuration keys."""
-        expected_keys = [
-            "MODEL_NAME",
-            "EMBEDDING_MODEL",
-            "CHUNK_SIZE",
-            "CHUNK_OVERLAP",
-            "RETRIEVAL_K",
-            "PERSIST_DIRECTORY",
-            "COLLECTION_NAME",
-            "LOGS_FILE",
-            "SUMMARIZATION_ENABLED",
-            "SUMMARIZATION_MIN_WORDS",
-            "SUMMARIZATION_MAX_LENGTH",
-            "MARKDOWN_MODE",
-            "MARKDOWN_STRATEGY",
-        ]
-
-        assert CONFIG_KEYS == expected_keys
-        assert len(CONFIG_KEYS) == 13
+    def test_app_config_defaults(self):
+        """Test that AppConfig has expected default values."""
+        config = AppConfig()
+        
+        assert config.model_name == "llama3.2"
+        assert config.embedding_model == "nomic-embed-text"
+        assert config.chunk_size == 1000
+        assert config.chunk_overlap == 200
+        assert config.retrieval_k == 3
+        assert config.persist_directory == "./chroma_db"
+        assert config.collection_name == "obsidian_documents"
+        assert config.logs_file == "logs/app.log"
+        assert config.summarization_enabled == True
+        assert config.summarization_min_words == 500
+        assert config.summarization_max_length == 150
+        assert config.markdown_mode == "single"
+        assert config.markdown_strategy == "auto"
 
     @patch("modules.config.os.getenv")
-    def test_get_config_empty_environment(self, mock_getenv):
-        """Test get_config when no environment variables are set."""
+    def test_from_env_empty_environment(self, mock_getenv):
+        """Test AppConfig.from_env when no environment variables are set."""
         mock_getenv.return_value = None
 
-        result = get_config()
+        config = AppConfig.from_env()
 
-        assert result == {}
-        assert len(mock_getenv.call_args_list) == len(CONFIG_KEYS)
-
-        # Verify all config keys were checked
-        called_keys = [call[0][0] for call in mock_getenv.call_args_list]
-        assert set(called_keys) == set(CONFIG_KEYS)
+        # Should return default values
+        assert config.model_name == "llama3.2"
+        assert config.embedding_model == "nomic-embed-text"
+        assert config.chunk_size == 1000
+        assert config.chunk_overlap == 200
+        assert config.retrieval_k == 3
+        assert config.persist_directory == "./chroma_db"
+        assert config.collection_name == "obsidian_documents"
 
     @patch("modules.config.os.getenv")
-    def test_get_config_all_string_values(self, mock_getenv):
-        """Test get_config with all string configuration values."""
+    def test_from_env_string_values(self, mock_getenv):
+        """Test AppConfig.from_env with string configuration values."""
         mock_values = {
-            "MODEL_NAME": "test-model",
-            "EMBEDDING_MODEL": "test-embedding",
-            "CHUNK_SIZE": None,
-            "CHUNK_OVERLAP": None,
-            "RETRIEVAL_K": None,
-            "PERSIST_DIRECTORY": "/test/persist",
-            "COLLECTION_NAME": "test_collection",
-        }
-        mock_getenv.side_effect = lambda key: mock_values.get(key)
-
-        result = get_config()
-
-        expected = {
             "MODEL_NAME": "test-model",
             "EMBEDDING_MODEL": "test-embedding",
             "PERSIST_DIRECTORY": "/test/persist",
             "COLLECTION_NAME": "test_collection",
-        }
-        assert result == expected
-
-    @patch("modules.config.os.getenv")
-    def test_get_config_numeric_values(self, mock_getenv):
-        """Test get_config with numeric configuration values."""
-        mock_values = {
-            "MODEL_NAME": None,
-            "EMBEDDING_MODEL": None,
-            "CHUNK_SIZE": "1000",
-            "CHUNK_OVERLAP": "200",
-            "RETRIEVAL_K": "5",
-            "PERSIST_DIRECTORY": None,
-            "COLLECTION_NAME": None,
+            "LOGS_FILE": "/test/logs.log",
         }
         mock_getenv.side_effect = lambda key: mock_values.get(key)
 
-        result = get_config()
+        config = AppConfig.from_env()
 
-        expected = {
-            "CHUNK_SIZE": 1000,
-            "CHUNK_OVERLAP": 200,
-            "RETRIEVAL_K": 5,
-        }
-        assert result == expected
-
-        # Verify types are correct
-        assert isinstance(result["CHUNK_SIZE"], int)
-        assert isinstance(result["CHUNK_OVERLAP"], int)
-        assert isinstance(result["RETRIEVAL_K"], int)
+        assert config.model_name == "test-model"
+        assert config.embedding_model == "test-embedding"
+        assert config.persist_directory == "/test/persist"
+        assert config.collection_name == "test_collection"
+        assert config.logs_file == "/test/logs.log"
 
     @patch("modules.config.os.getenv")
-    def test_get_config_mixed_values(self, mock_getenv):
-        """Test get_config with mixed string and numeric values."""
+    def test_from_env_numeric_values(self, mock_getenv):
+        """Test AppConfig.from_env with numeric configuration values."""
         mock_values = {
-            "MODEL_NAME": "llama3.2",
-            "EMBEDDING_MODEL": "nomic-embed-text",
             "CHUNK_SIZE": "1500",
             "CHUNK_OVERLAP": "300",
-            "RETRIEVAL_K": "10",
-            "PERSIST_DIRECTORY": "/data/chroma",
-            "COLLECTION_NAME": "obsidian_docs",
+            "RETRIEVAL_K": "5",
+            "SUMMARIZATION_MIN_WORDS": "1000",
+            "SUMMARIZATION_MAX_LENGTH": "200",
         }
         mock_getenv.side_effect = lambda key: mock_values.get(key)
 
-        result = get_config()
+        config = AppConfig.from_env()
 
-        expected = {
-            "MODEL_NAME": "llama3.2",
-            "EMBEDDING_MODEL": "nomic-embed-text",
-            "CHUNK_SIZE": 1500,
-            "CHUNK_OVERLAP": 300,
-            "RETRIEVAL_K": 10,
-            "PERSIST_DIRECTORY": "/data/chroma",
-            "COLLECTION_NAME": "obsidian_docs",
-        }
-        assert result == expected
+        assert config.chunk_size == 1500
+        assert config.chunk_overlap == 300
+        assert config.retrieval_k == 5
+        assert config.summarization_min_words == 1000
+        assert config.summarization_max_length == 200
+
+        # Verify types are correct
+        assert isinstance(config.chunk_size, int)
+        assert isinstance(config.chunk_overlap, int)
+        assert isinstance(config.retrieval_k, int)
+        assert isinstance(config.summarization_min_words, int)
+        assert isinstance(config.summarization_max_length, int)
 
     @patch("modules.config.os.getenv")
-    def test_get_config_partial_values(self, mock_getenv):
-        """Test get_config with only some environment variables set."""
-        mock_values = {
-            "MODEL_NAME": "test-model",
-            "EMBEDDING_MODEL": None,
-            "CHUNK_SIZE": "800",
-            "CHUNK_OVERLAP": None,
-            "RETRIEVAL_K": "3",
-            "PERSIST_DIRECTORY": None,
-            "COLLECTION_NAME": "partial_collection",
-        }
-        mock_getenv.side_effect = lambda key: mock_values.get(key)
+    def test_from_env_boolean_values(self, mock_getenv):
+        """Test AppConfig.from_env with boolean configuration values."""
+        test_cases = [
+            ("true", True),
+            ("1", True),
+            ("yes", True),
+            ("on", True),
+            ("false", False),
+            ("0", False),
+            ("no", False),
+            ("off", False),
+            ("anything_else", False),
+        ]
 
-        result = get_config()
-
-        expected = {
-            "MODEL_NAME": "test-model",
-            "CHUNK_SIZE": 800,
-            "RETRIEVAL_K": 3,
-            "COLLECTION_NAME": "partial_collection",
-        }
-        assert result == expected
+        for env_value, expected in test_cases:
+            mock_getenv.side_effect = lambda key: env_value if key == "SUMMARIZATION_ENABLED" else None
+            config = AppConfig.from_env()
+            assert config.summarization_enabled == expected, f"Failed for env value: {env_value}"
 
     @patch("modules.config.os.getenv")
-    def test_get_config_zero_numeric_values(self, mock_getenv):
-        """Test get_config handles zero values correctly."""
-        mock_values = {
-            "MODEL_NAME": None,
-            "EMBEDDING_MODEL": None,
-            "CHUNK_SIZE": "0",
-            "CHUNK_OVERLAP": "0",
-            "RETRIEVAL_K": "0",
-            "PERSIST_DIRECTORY": None,
-            "COLLECTION_NAME": None,
-        }
-        mock_getenv.side_effect = lambda key: mock_values.get(key)
+    def test_from_env_markdown_mode_values(self, mock_getenv):
+        """Test AppConfig.from_env with valid markdown mode values."""
+        valid_modes = ["single", "elements"]
+        
+        for mode in valid_modes:
+            mock_getenv.side_effect = lambda key: mode if key == "MARKDOWN_MODE" else None
+            config = AppConfig.from_env()
+            assert config.markdown_mode == mode
 
-        result = get_config()
-
-        expected = {
-            "CHUNK_SIZE": 0,
-            "CHUNK_OVERLAP": 0,
-            "RETRIEVAL_K": 0,
-        }
-        assert result == expected
+        # Test invalid mode (should keep default)
+        mock_getenv.side_effect = lambda key: "invalid" if key == "MARKDOWN_MODE" else None
+        config = AppConfig.from_env()
+        assert config.markdown_mode == "single"  # default
 
     @patch("modules.config.os.getenv")
-    def test_get_config_negative_numeric_values(self, mock_getenv):
-        """Test get_config handles negative numeric values."""
-        mock_values = {
-            "MODEL_NAME": None,
-            "EMBEDDING_MODEL": None,
-            "CHUNK_SIZE": "-100",
-            "CHUNK_OVERLAP": "-50",
-            "RETRIEVAL_K": "-1",
-            "PERSIST_DIRECTORY": None,
-            "COLLECTION_NAME": None,
-        }
-        mock_getenv.side_effect = lambda key: mock_values.get(key)
+    def test_from_env_markdown_strategy_values(self, mock_getenv):
+        """Test AppConfig.from_env with valid markdown strategy values."""
+        valid_strategies = ["auto", "hi_res", "fast"]
+        
+        for strategy in valid_strategies:
+            mock_getenv.side_effect = lambda key: strategy if key == "MARKDOWN_STRATEGY" else None
+            config = AppConfig.from_env()
+            assert config.markdown_strategy == strategy
 
-        result = get_config()
-
-        expected = {
-            "CHUNK_SIZE": -100,
-            "CHUNK_OVERLAP": -50,
-            "RETRIEVAL_K": -1,
-        }
-        assert result == expected
+        # Test invalid strategy (should keep default)
+        mock_getenv.side_effect = lambda key: "invalid" if key == "MARKDOWN_STRATEGY" else None
+        config = AppConfig.from_env()
+        assert config.markdown_strategy == "auto"  # default
 
     @patch("modules.config.os.getenv")
-    def test_get_config_empty_string_values(self, mock_getenv):
-        """Test get_config handles empty string values."""
+    def test_from_env_mixed_values(self, mock_getenv):
+        """Test AppConfig.from_env with mixed configuration values."""
         mock_values = {
-            "MODEL_NAME": "",
-            "EMBEDDING_MODEL": "",
-            "CHUNK_SIZE": "",
-            "CHUNK_OVERLAP": "",
-            "RETRIEVAL_K": "",
-            "PERSIST_DIRECTORY": "",
-            "COLLECTION_NAME": "",
+            "MODEL_NAME": "llama3.2-custom",
+            "CHUNK_SIZE": "2000",
+            "RETRIEVAL_K": "7",
+            "PERSIST_DIRECTORY": "/custom/path",
+            "SUMMARIZATION_ENABLED": "true",
+            "MARKDOWN_MODE": "elements",
+            "MARKDOWN_STRATEGY": "hi_res",
         }
         mock_getenv.side_effect = lambda key: mock_values.get(key)
 
-        result = get_config()
+        config = AppConfig.from_env()
 
-        # Empty strings should be included for string values
-        expected = {
-            "MODEL_NAME": "",
-            "EMBEDDING_MODEL": "",
-            "PERSIST_DIRECTORY": "",
-            "COLLECTION_NAME": "",
-        }
-        assert result == expected
+        assert config.model_name == "llama3.2-custom"
+        assert config.chunk_size == 2000
+        assert config.retrieval_k == 7
+        assert config.persist_directory == "/custom/path"
+        assert config.summarization_enabled == True
+        assert config.markdown_mode == "elements"
+        assert config.markdown_strategy == "hi_res"
+
+    def test_update_from_cli(self):
+        """Test AppConfig.update_from_cli method."""
+        config = AppConfig()
+        
+        config.update_from_cli(
+            model_name="new-model",
+            chunk_size=1500,
+            retrieval_k=5,
+            invalid_key="should_be_ignored"
+        )
+
+        assert config.model_name == "new-model"
+        assert config.chunk_size == 1500
+        assert config.retrieval_k == 5
+        # Invalid key should be ignored
+        assert not hasattr(config, "invalid_key")
+
+    def test_update_from_cli_with_none_values(self):
+        """Test AppConfig.update_from_cli ignores None values."""
+        config = AppConfig()
+        original_model = config.model_name
+        
+        config.update_from_cli(
+            model_name=None,
+            chunk_size=1500,
+        )
+
+        assert config.model_name == original_model  # Should remain unchanged
+        assert config.chunk_size == 1500
+
+    def test_get_method(self):
+        """Test AppConfig.get method for backward compatibility."""
+        config = AppConfig()
+        
+        assert config.get("model_name") == "llama3.2"
+        assert config.get("chunk_size") == 1000
+        assert config.get("nonexistent_key") is None
+        assert config.get("nonexistent_key", "default") == "default"
 
     @patch("modules.config.os.getenv")
-    def test_get_config_invalid_numeric_values(self, mock_getenv):
-        """Test get_config with invalid numeric values raises ValueError."""
-        mock_values = {
-            "MODEL_NAME": None,
-            "EMBEDDING_MODEL": None,
-            "CHUNK_SIZE": "not_a_number",
-            "CHUNK_OVERLAP": None,
-            "RETRIEVAL_K": None,
-            "PERSIST_DIRECTORY": None,
-            "COLLECTION_NAME": None,
-        }
-        mock_getenv.side_effect = lambda key: mock_values.get(key)
+    def test_numeric_conversion_errors(self, mock_getenv):
+        """Test that invalid numeric values raise ValueError."""
+        mock_getenv.side_effect = lambda key: "not_a_number" if key == "CHUNK_SIZE" else None
 
         with pytest.raises(ValueError):
-            get_config()
+            AppConfig.from_env()
 
     @patch("modules.config.os.getenv")
-    def test_get_config_numeric_with_decimal(self, mock_getenv):
-        """Test get_config with decimal numeric values raises ValueError."""
-        mock_values = {
-            "MODEL_NAME": None,
-            "EMBEDDING_MODEL": None,
-            "CHUNK_SIZE": "1000.5",
-            "CHUNK_OVERLAP": None,
-            "RETRIEVAL_K": None,
-            "PERSIST_DIRECTORY": None,
-            "COLLECTION_NAME": None,
-        }
-        mock_getenv.side_effect = lambda key: mock_values.get(key)
+    def test_decimal_numeric_values_raise_error(self, mock_getenv):
+        """Test that decimal numeric values raise ValueError."""
+        mock_getenv.side_effect = lambda key: "1000.5" if key == "CHUNK_SIZE" else None
 
         with pytest.raises(ValueError):
-            get_config()
+            AppConfig.from_env()
 
-    @patch("modules.config.os.getenv")
-    def test_get_config_preserves_string_types(self, mock_getenv):
-        """Test that string configuration values preserve their type."""
-        mock_values = {
-            "MODEL_NAME": "123",  # Numeric string but should remain string
-            "EMBEDDING_MODEL": "456",
-            "CHUNK_SIZE": None,
-            "CHUNK_OVERLAP": None,
-            "RETRIEVAL_K": None,
-            "PERSIST_DIRECTORY": "789",
-            "COLLECTION_NAME": "000",
-        }
-        mock_getenv.side_effect = lambda key: mock_values.get(key)
+
+class TestGetConfig:
+    """Test cases for get_config function."""
+
+    @patch("modules.config.AppConfig.from_env")
+    def test_get_config_returns_app_config(self, mock_from_env):
+        """Test that get_config returns an AppConfig instance."""
+        mock_config = AppConfig()
+        mock_from_env.return_value = mock_config
+
+        # Clear the global config to force recreation
+        import modules.config
+        modules.config._app_config = None
 
         result = get_config()
 
-        expected = {
-            "MODEL_NAME": "123",
-            "EMBEDDING_MODEL": "456",
-            "PERSIST_DIRECTORY": "789",
-            "COLLECTION_NAME": "000",
-        }
-        assert result == expected
+        assert isinstance(result, AppConfig)
+        assert result is mock_config
+        mock_from_env.assert_called_once()
 
-        # Verify they remain as strings
-        assert isinstance(result["MODEL_NAME"], str)
-        assert isinstance(result["EMBEDDING_MODEL"], str)
-        assert isinstance(result["PERSIST_DIRECTORY"], str)
-        assert isinstance(result["COLLECTION_NAME"], str)
+    @patch("modules.config.AppConfig.from_env")
+    def test_get_config_singleton_behavior(self, mock_from_env):
+        """Test that get_config returns the same instance on multiple calls."""
+        mock_config = AppConfig()
+        mock_from_env.return_value = mock_config
 
-    def test_dotenv_functionality(self):
-        """Test that load_dotenv functionality is working (by checking module was imported)."""
-        # Since the module is already imported and load_dotenv was called at import time,
-        # we can't mock it after the fact. This test just confirms the module imported successfully.
+        # Clear the global config to force recreation
+        import modules.config
+        modules.config._app_config = None
+
+        result1 = get_config()
+        result2 = get_config()
+
+        assert result1 is result2
+        mock_from_env.assert_called_once()  # Should only be called once
+
+    def test_dotenv_loaded(self):
+        """Test that dotenv functionality is available."""
+        # Since load_dotenv is called at module import, we just verify
+        # the module imported successfully and the function is available
         from modules.config import get_config
-
         assert callable(get_config)
 
-    def test_config_keys_are_strings(self):
-        """Test that all CONFIG_KEYS are strings."""
-        for key in CONFIG_KEYS:
-            assert isinstance(key, str)
-            assert len(key) > 0
-
-    def test_numeric_config_keys_subset(self):
-        """Test that numeric configuration keys are a subset of all keys."""
-        numeric_keys = ["CHUNK_SIZE", "CHUNK_OVERLAP", "RETRIEVAL_K"]
-
-        for key in numeric_keys:
-            assert key in CONFIG_KEYS
-
     @patch.dict(os.environ, {}, clear=True)
-    def test_get_config_with_actual_environment(self):
-        """Test get_config with actual environment (no mocking)."""
-        # This test uses actual os.environ but starts with a clean slate
-        result = get_config()
-        assert result == {}
+    def test_get_config_with_clean_environment(self):
+        """Test get_config with empty environment."""
+        # Clear the global config to force recreation
+        import modules.config
+        modules.config._app_config = None
+
+        config = get_config()
+        
+        # Should have default values
+        assert config.model_name == "llama3.2"
+        assert config.chunk_size == 1000
+        assert config.retrieval_k == 3
 
     @patch.dict(
         os.environ,
-        {"MODEL_NAME": "real-model", "CHUNK_SIZE": "2000", "UNKNOWN_KEY": "ignored"},
+        {"MODEL_NAME": "test-model", "CHUNK_SIZE": "2000", "UNKNOWN_KEY": "ignored"},
         clear=True,
     )
-    def test_get_config_with_real_environment_subset(self):
-        """Test get_config with real environment variables (subset)."""
-        result = get_config()
+    def test_get_config_with_environment_variables(self):
+        """Test get_config with actual environment variables."""
+        # Clear the global config to force recreation
+        import modules.config
+        modules.config._app_config = None
 
-        expected = {
-            "MODEL_NAME": "real-model",
-            "CHUNK_SIZE": 2000,
-        }
-        assert result == expected
-        # Should ignore UNKNOWN_KEY as it's not in CONFIG_KEYS
+        config = get_config()
+
+        assert config.model_name == "test-model"
+        assert config.chunk_size == 2000
+        # UNKNOWN_KEY should be ignored since it's not a valid config field

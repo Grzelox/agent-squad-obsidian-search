@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch, MagicMock, call
 from langchain.schema import Document
 
 from modules.agent import ObsidianAgent
+from modules.config import AppConfig
 
 
 class TestObsidianAgent:
@@ -12,26 +13,26 @@ class TestObsidianAgent:
     @pytest.fixture
     def mock_config(self):
         """Create a mock configuration."""
-        return {
-            "MODEL_NAME": "test-model",
-            "EMBEDDING_MODEL": "test-embedding",
-            "PERSIST_DIRECTORY": "/test/chroma",
-            "COLLECTION_NAME": "test_collection",
-            "RETRIEVAL_K": 3,
-        }
+        config = AppConfig()
+        config.model_name = "test-model"
+        config.embedding_model = "test-embedding"
+        config.persist_directory = "/test/chroma"
+        config.collection_name = "test_collection"
+        config.retrieval_k = 3
+        return config
 
     @pytest.fixture
-    def default_agent_params(self):
+    def default_agent_params(self, mock_config):
         """Default parameters for creating an ObsidianAgent."""
         return {
             "obsidian_vault_path": "/test/vault",
-            "model_name": None,
-            "embedding_model": None,
-            "persist_directory": None,
-            "log_file": "test.log",
+            "model_name": mock_config.model_name,
+            "embedding_model": mock_config.embedding_model,
+            "persist_directory": mock_config.persist_directory,
+            "log_file": mock_config.logs_file,
             "chroma_host": None,
             "chroma_port": None,
-            "collection_name": None,
+            "collection_name": mock_config.collection_name,
             "verbose": False,
             "quiet": False,
         }
@@ -80,10 +81,7 @@ class TestObsidianAgent:
 
         agent = ObsidianAgent(**default_agent_params)
 
-        # Verify configuration loading
-        mock_get_config.assert_called_once()
-
-        # Verify attributes set from config
+        # Verify attributes set from parameters
         assert agent.obsidian_vault_path == Path("/test/vault")
         assert agent.model_name == "test-model"
         assert agent.embedding_model == "test-embedding"
@@ -94,7 +92,7 @@ class TestObsidianAgent:
 
         # Verify logger setup
         mock_logger_setup.assert_called_once_with(
-            "test.log", str(id(agent)), False, False
+            "logs/app.log", str(id(agent)), False, False
         )
         assert agent.logger == mock_logger
 
@@ -224,17 +222,19 @@ class TestObsidianAgent:
         mock_logger_setup,
         mock_get_config,
         mock_config,
+        default_agent_params,
     ):
         """Test initialization with remote ChromaDB configuration."""
         mock_get_config.return_value = mock_config
         mock_logger = Mock()
         mock_logger_setup.return_value = mock_logger
 
-        agent = ObsidianAgent(
-            obsidian_vault_path="/test/vault",
-            chroma_host="remote-host",
-            chroma_port=9000,
-        )
+        # Use default params but override chroma settings
+        params = default_agent_params.copy()
+        params["chroma_host"] = "remote-host"
+        params["chroma_port"] = 9000
+
+        agent = ObsidianAgent(**params)
 
         # Verify remote ChromaDB logging
         mock_logger.info.assert_any_call("Using remote ChromaDB at remote-host:9000")
@@ -541,7 +541,9 @@ class TestObsidianAgent:
         ):
 
             # Mock config for retrieval
-            mock_get_config.return_value = {"RETRIEVAL_K": 7}
+            config = AppConfig()
+            config.retrieval_k = 7
+            mock_get_config.return_value = config
 
             agent = ObsidianAgent(**default_agent_params)
 
@@ -633,8 +635,9 @@ class TestObsidianAgent:
             patch("builtins.print"),
         ):
 
-            # Mock config without RETRIEVAL_K
-            mock_get_config.return_value = {}
+            # Mock config with default RETRIEVAL_K
+            config = AppConfig()  # Will use default retrieval_k = 3
+            mock_get_config.return_value = config
 
             agent = ObsidianAgent(**default_agent_params)
 
@@ -646,7 +649,7 @@ class TestObsidianAgent:
 
             # Verify default retrieval_k is used
             mock_vectorstore.as_retriever.assert_called_once_with(
-                search_type="similarity", search_kwargs={"k": 5}
+                search_type="similarity", search_kwargs={"k": 3}
             )
 
     def test_setup_qa_chain_error_handling(self, default_agent_params):
