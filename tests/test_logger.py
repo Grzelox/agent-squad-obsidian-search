@@ -1,8 +1,6 @@
 import pytest
-import sys
 import logging
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock, call
+from unittest.mock import Mock, patch, call
 from datetime import datetime
 
 from modules.logger import (

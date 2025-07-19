@@ -1,6 +1,6 @@
 import pytest
 import os
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 
 from modules.config import get_config, AppConfig
 

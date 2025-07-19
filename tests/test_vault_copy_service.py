@@ -1,7 +1,6 @@
 import pytest
-import shutil
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 from modules.vault_copy_service import VaultCopyService, VaultInfo, VaultInfoBuilder
 
