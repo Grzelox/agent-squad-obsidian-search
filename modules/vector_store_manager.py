@@ -30,7 +30,6 @@ class VectorStoreManager:
         self.use_remote_client = chroma_host is not None
 
         self.config = get_config()
-        self.collection_name = self.config.get("COLLECTION_NAME", "obsidian_documents")
 
         self.logger.info(
             f"VectorStoreManager initialized with {'remote' if self.use_remote_client else 'local'} ChromaDB"
@@ -84,7 +83,7 @@ class VectorStoreManager:
             documents=chunks,
             embedding=self.embeddings,
             client=client,
-            collection_name=self.collection_name,
+            collection_name=self.config.collection_name,
         )
 
     def load_existing_vectorstore(self) -> bool:
@@ -135,24 +134,24 @@ class VectorStoreManager:
             try:
                 collections = client.list_collections()
                 collection_exists = any(
-                    col.name == self.collection_name for col in collections
+                    col.name == self.config.collection_name for col in collections
                 )
 
                 if collection_exists:
                     self.logger.info(
-                        f"Found existing remote collection: {self.collection_name}"
+                        f"Found existing remote collection: {self.config.collection_name}"
                     )
                     print("Loading existing remote vector store...")
                     self.vectorstore = Chroma(
                         client=client,
-                        collection_name=self.collection_name,
+                        collection_name=self.config.collection_name,
                         embedding_function=self.embeddings,
                     )
                     self.logger.info("Existing remote vector store loaded successfully")
                     return True
                 else:
                     self.logger.debug(
-                        f"Collection '{self.collection_name}' not found on remote server"
+                        f"Collection '{self.config.collection_name}' not found on remote server"
                     )
                     return False
 
@@ -175,7 +174,7 @@ class VectorStoreManager:
                 "type": "remote",
                 "host": self.chroma_host,
                 "port": self.chroma_port,
-                "collection": self.collection_name,
+                "collection": self.config.collection_name,
                 "url": f"http://{self.chroma_host}:{self.chroma_port}",
             }
         else:
@@ -189,8 +188,8 @@ class VectorStoreManager:
         """Split documents into chunks for better retrieval."""
         self.logger.debug("Initializing text splitter")
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=self.config.get("CHUNK_SIZE", 1000),
-            chunk_overlap=self.config.get("CHUNK_OVERLAP", 200),
+            chunk_size=self.config.chunk_size,
+            chunk_overlap=self.config.chunk_overlap,
             separators=["\n\n", "\n", " ", ""],
         )
 

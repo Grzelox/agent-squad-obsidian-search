@@ -22,27 +22,19 @@ class ObsidianDocumentProcessor:
         self.logger = logger
         self.llm = llm
 
-        # Use get_config() to get the updated configuration
         self.config = get_config()
 
-        self.markdown_mode = self.config.get("MARKDOWN_MODE", "single")
-        self.markdown_strategy = self.config.get("MARKDOWN_STRATEGY", "auto")
-
-        self.summarization_enabled = self.config.get("SUMMARIZATION_ENABLED", False)
-        self.min_words_for_summary = self.config.get("SUMMARIZATION_MIN_WORDS", 500)
-        self.max_summary_length = self.config.get("SUMMARIZATION_MAX_LENGTH", 200)
-
-        if self.summarization_enabled and self.llm:
+        if self.config.summarization_enabled and self.llm:
             self.logger.info(
-                f"Document summarization enabled (min words: {self.min_words_for_summary})"
+                f"Document summarization enabled (min words: {self.config.summarization_min_words})"
             )
-        elif self.summarization_enabled and not self.llm:
+        elif self.config.summarization_enabled and not self.llm:
             self.logger.warning(
                 "Summarization enabled but no LLM provided - summaries will be skipped"
             )
 
         self.logger.info(
-            f"Markdown processing mode: {self.markdown_mode}, strategy: {self.markdown_strategy}"
+            f"Markdown processing mode: {self.config.markdown_mode}, strategy: {self.config.markdown_strategy}"
         )
 
     def load_documents(self) -> List[Document]:
@@ -93,7 +85,7 @@ class ObsidianDocumentProcessor:
                 processed_doc = self._process_document_content(doc)
 
                 # Add summarization if enabled and LLM is available
-                if self.summarization_enabled and self.llm:
+                if self.config.summarization_enabled and self.llm:
                     summary = self._generate_summary_if_needed(processed_doc)
                     if summary:
                         processed_doc.metadata["summary"] = summary
@@ -145,7 +137,7 @@ class ObsidianDocumentProcessor:
         """Load a single markdown file using UnstructuredMarkdownLoader."""
         try:
             loader = UnstructuredMarkdownLoader(
-                str(file_path), mode=self.markdown_mode, strategy=self.markdown_strategy
+                str(file_path), mode=self.config.markdown_mode, strategy=self.config.markdown_strategy
             )
 
             documents = loader.load()
@@ -153,13 +145,13 @@ class ObsidianDocumentProcessor:
             for doc in documents:
                 doc.metadata["source"] = str(file_path.relative_to(self.vault_path))
                 doc.metadata["file_path"] = str(file_path)
-                doc.metadata["markdown_mode"] = self.markdown_mode
-                doc.metadata["markdown_strategy"] = self.markdown_strategy
+                doc.metadata["markdown_mode"] = self.config.markdown_mode
+                doc.metadata["markdown_strategy"] = self.config.markdown_strategy
 
                 doc.metadata["file_size"] = file_path.stat().st_size
                 doc.metadata["file_modified"] = file_path.stat().st_mtime
 
-                if self.markdown_mode == "elements":
+                if self.config.markdown_mode == "elements":
                     pass
 
             return documents
@@ -204,9 +196,9 @@ class ObsidianDocumentProcessor:
         """Generate a summary for the document if it meets the word count threshold."""
         word_count = self._count_words(doc.page_content)
 
-        if word_count < self.min_words_for_summary:
+        if word_count < self.config.summarization_min_words:
             self.logger.debug(
-                f"Document too short for summary ({word_count} words < {self.min_words_for_summary})"
+                f"Document too short for summary ({word_count} words < {self.config.summarization_min_words})"
             )
             return None
 
@@ -233,7 +225,7 @@ class ObsidianDocumentProcessor:
                 (
                     "system",
                     "You are an expert at summarizing documents. Create a concise, informative summary "
-                    f"of the following text in no more than {self.max_summary_length} words. "
+                    f"of the following text in no more than {self.config.summarization_max_length} words. "
                     "Focus on the main ideas, key points, and important concepts. "
                     "Write in a clear, readable style that captures the essence of the content.",
                 ),
@@ -245,12 +237,12 @@ class ObsidianDocumentProcessor:
         result = chain.invoke({"content": content})
 
         # Clean up the summary
-        summary = resuelt.strip()
+        summary = result.strip()
 
         # Ensure it's within word limit
         words = summary.split()
-        if len(words) > self.max_summary_length:
-            summary = " ".join(words[: self.max_summary_length]) + "..."
+        if len(words) > self.config.summarization_max_length:
+            summary = " ".join(words[: self.config.summarization_max_length]) + "..."
 
         return summary
 
