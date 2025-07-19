@@ -66,7 +66,7 @@ python main.py -v "/path/to/your/obsidian/vault" --chroma-host localhost --chrom
 - Perfect for scripts or when you want minimal noise
 
 **Standard Mode (default)**
-- **White**: Regular application messages (copying, questions, answers)  
+- **White**: Regular application messages (copying, questions, answers)
 - **🟢 Green**: Standard log messages (INFO, WARNING, ERROR)
 
 **Verbose Mode (`--verbose`)**
@@ -125,7 +125,7 @@ python main.py -v "/path/to/vault" --enable-summarization --markdown-mode elemen
 
 **Benefits of Enhanced Markdown Processing:**
 - **Better structure preservation**: Maintains markdown hierarchy and elements
-- **Improved metadata**: Enhanced file information and element categorization  
+- **Improved metadata**: Enhanced file information and element categorization
 - **Flexible parsing**: Choose between document-level or element-level processing
 - **Obsidian compatibility**: Better handling of Obsidian-specific markdown features
 
@@ -165,7 +165,7 @@ python main.py -v "/path/to/vault" --enable-summarization --markdown-mode elemen
 
 ### Example Queries
 - "What are my notes about machine learning?"
-- "Summarize my meeting notes from last week"  
+- "Summarize my meeting notes from last week"
 - "Tell me about the project ideas I've written down"
 - "What are the main themes in my research?" (may retrieve summary content)
 - "Give me an overview of my thoughts on productivity" (benefits from summary search)
@@ -214,7 +214,7 @@ The `docker-compose.yml` includes two containers:
 **Important**: The admin container connects to ChromaDB using the **service name** as hostname:
 
 ```bash
-CHROMADB_CONN_STR=http://chromadb:8000 
+CHROMADB_CONN_STR=http://chromadb:8000
 ```
 
 ### Setup Instructions
