@@ -27,4 +27,4 @@ services:
       - CHROMA_URL=http://chromadb:8000
     depends_on:
       - chromadb
-    restart: unless-stopped 
+    restart: unless-stopped

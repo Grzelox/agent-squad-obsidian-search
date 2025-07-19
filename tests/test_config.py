@@ -11,7 +11,7 @@ class TestAppConfig:
     def test_app_config_defaults(self):
         """Test that AppConfig has expected default values."""
         config = AppConfig()
-        
+
         assert config.model_name == "llama3.2"
         assert config.embedding_model == "nomic-embed-text"
         assert config.chunk_size == 1000
@@ -105,22 +105,30 @@ class TestAppConfig:
         ]
 
         for env_value, expected in test_cases:
-            mock_getenv.side_effect = lambda key: env_value if key == "SUMMARIZATION_ENABLED" else None
+            mock_getenv.side_effect = lambda key: (
+                env_value if key == "SUMMARIZATION_ENABLED" else None
+            )
             config = AppConfig.from_env()
-            assert config.summarization_enabled == expected, f"Failed for env value: {env_value}"
+            assert (
+                config.summarization_enabled == expected
+            ), f"Failed for env value: {env_value}"
 
     @patch("modules.config.os.getenv")
     def test_from_env_markdown_mode_values(self, mock_getenv):
         """Test AppConfig.from_env with valid markdown mode values."""
         valid_modes = ["single", "elements"]
-        
+
         for mode in valid_modes:
-            mock_getenv.side_effect = lambda key: mode if key == "MARKDOWN_MODE" else None
+            mock_getenv.side_effect = lambda key: (
+                mode if key == "MARKDOWN_MODE" else None
+            )
             config = AppConfig.from_env()
             assert config.markdown_mode == mode
 
         # Test invalid mode (should keep default)
-        mock_getenv.side_effect = lambda key: "invalid" if key == "MARKDOWN_MODE" else None
+        mock_getenv.side_effect = lambda key: (
+            "invalid" if key == "MARKDOWN_MODE" else None
+        )
         config = AppConfig.from_env()
         assert config.markdown_mode == "single"  # default
 
@@ -128,14 +136,18 @@ class TestAppConfig:
     def test_from_env_markdown_strategy_values(self, mock_getenv):
         """Test AppConfig.from_env with valid markdown strategy values."""
         valid_strategies = ["auto", "hi_res", "fast"]
-        
+
         for strategy in valid_strategies:
-            mock_getenv.side_effect = lambda key: strategy if key == "MARKDOWN_STRATEGY" else None
+            mock_getenv.side_effect = lambda key: (
+                strategy if key == "MARKDOWN_STRATEGY" else None
+            )
             config = AppConfig.from_env()
             assert config.markdown_strategy == strategy
 
         # Test invalid strategy (should keep default)
-        mock_getenv.side_effect = lambda key: "invalid" if key == "MARKDOWN_STRATEGY" else None
+        mock_getenv.side_effect = lambda key: (
+            "invalid" if key == "MARKDOWN_STRATEGY" else None
+        )
         config = AppConfig.from_env()
         assert config.markdown_strategy == "auto"  # default
 
@@ -166,12 +178,12 @@ class TestAppConfig:
     def test_update_from_cli(self):
         """Test AppConfig.update_from_cli method."""
         config = AppConfig()
-        
+
         config.update_from_cli(
             model_name="new-model",
             chunk_size=1500,
             retrieval_k=5,
-            invalid_key="should_be_ignored"
+            invalid_key="should_be_ignored",
         )
 
         assert config.model_name == "new-model"
@@ -184,7 +196,7 @@ class TestAppConfig:
         """Test AppConfig.update_from_cli ignores None values."""
         config = AppConfig()
         original_model = config.model_name
-        
+
         config.update_from_cli(
             model_name=None,
             chunk_size=1500,
@@ -196,7 +208,7 @@ class TestAppConfig:
     def test_get_method(self):
         """Test AppConfig.get method for backward compatibility."""
         config = AppConfig()
-        
+
         assert config.get("model_name") == "llama3.2"
         assert config.get("chunk_size") == 1000
         assert config.get("nonexistent_key") is None
@@ -205,7 +217,9 @@ class TestAppConfig:
     @patch("modules.config.os.getenv")
     def test_numeric_conversion_errors(self, mock_getenv):
         """Test that invalid numeric values raise ValueError."""
-        mock_getenv.side_effect = lambda key: "not_a_number" if key == "CHUNK_SIZE" else None
+        mock_getenv.side_effect = lambda key: (
+            "not_a_number" if key == "CHUNK_SIZE" else None
+        )
 
         with pytest.raises(ValueError):
             AppConfig.from_env()
@@ -230,6 +244,7 @@ class TestGetConfig:
 
         # Clear the global config to force recreation
         import modules.config
+
         modules.config._app_config = None
 
         result = get_config()
@@ -246,6 +261,7 @@ class TestGetConfig:
 
         # Clear the global config to force recreation
         import modules.config
+
         modules.config._app_config = None
 
         result1 = get_config()
@@ -259,6 +275,7 @@ class TestGetConfig:
         # Since load_dotenv is called at module import, we just verify
         # the module imported successfully and the function is available
         from modules.config import get_config
+
         assert callable(get_config)
 
     @patch.dict(os.environ, {}, clear=True)
@@ -266,10 +283,11 @@ class TestGetConfig:
         """Test get_config with empty environment."""
         # Clear the global config to force recreation
         import modules.config
+
         modules.config._app_config = None
 
         config = get_config()
-        
+
         # Should have default values
         assert config.model_name == "llama3.2"
         assert config.chunk_size == 1000
@@ -284,6 +302,7 @@ class TestGetConfig:
         """Test get_config with actual environment variables."""
         # Clear the global config to force recreation
         import modules.config
+
         modules.config._app_config = None
 
         config = get_config()
