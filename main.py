@@ -92,13 +92,13 @@ def main(
         click.echo(f"✓ Vault copied successfully to '{working_vault_path}'")
 
         agent = ObsidianAgent(
-            obsidian_vault_path=str(working_vault_path),
+            obsidian_vault_path=working_vault_path,
             model_name=config.model_name,
             embedding_model=config.embedding_model,
             persist_directory=config.persist_directory,
             log_file=config.logs_file,
             chroma_host=chroma_host,
-            chroma_port=chroma_port if chroma_host else None,
+            chroma_port=chroma_port,
             collection_name=config.collection_name,
             verbose=verbose,
             quiet=quiet,

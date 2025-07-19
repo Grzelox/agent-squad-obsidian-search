@@ -16,16 +16,16 @@ class ObsidianAgent:
 
     def __init__(
         self,
-        obsidian_vault_path: str,
-        model_name: Optional[str] = None,
-        embedding_model: Optional[str] = None,
-        persist_directory: Optional[str] = None,
-        log_file: Optional[str] = None,
-        chroma_host: Optional[str] = None,
-        chroma_port: Optional[int] = None,
-        collection_name: Optional[str] = None,
-        verbose: bool = False,
-        quiet: bool = False,
+        obsidian_vault_path: Path,
+        model_name: str,
+        embedding_model: str,
+        persist_directory: str,
+        log_file: str,
+        chroma_host: str,
+        chroma_port: int,
+        collection_name: str,
+        verbose: bool,
+        quiet: bool,
     ):
         self.log_file = log_file
 
