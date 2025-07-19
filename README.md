@@ -99,6 +99,36 @@ python main.py -v "/path/to/vault" --enable-summarization --summarization-min-wo
 python main.py -v "/path/to/vault" --chroma-host localhost --enable-summarization --verbose
 ```
 
+### Enhanced Markdown Processing
+
+The agent uses LangChain's `UnstructuredMarkdownLoader` for superior markdown parsing:
+
+```bash
+# Use elements mode for structured parsing (splits by headings, paragraphs, etc.)
+python main.py -v "/path/to/vault" --markdown-mode elements
+
+# Use high-resolution strategy for better quality parsing
+python main.py -v "/path/to/vault" --markdown-strategy hi_res
+
+# Combine enhanced parsing with summarization
+python main.py -v "/path/to/vault" --enable-summarization --markdown-mode elements --markdown-strategy hi_res
+```
+
+**Markdown Processing Modes:**
+- **single**: Treats each file as one document (preserves overall structure)
+- **elements**: Splits documents by structure (headings, paragraphs, lists, etc.)
+
+**Markdown Processing Strategies:**
+- **auto**: Automatically choose best strategy (default)
+- **hi_res**: Higher quality parsing with more computational cost
+- **fast**: Faster parsing with good quality
+
+**Benefits of Enhanced Markdown Processing:**
+- **Better structure preservation**: Maintains markdown hierarchy and elements
+- **Improved metadata**: Enhanced file information and element categorization  
+- **Flexible parsing**: Choose between document-level or element-level processing
+- **Obsidian compatibility**: Better handling of Obsidian-specific markdown features
+
 **Summarization Features:**
 - **Automatic detection**: Only documents above the word threshold are summarized
 - **Intelligent summaries**: AI-generated summaries focus on key concepts and main ideas
@@ -107,6 +137,13 @@ python main.py -v "/path/to/vault" --chroma-host localhost --enable-summarizatio
 - **Special commands**: Use `summaries` and `stats` commands in the interactive session
 - **Enhanced search results**: Clear distinction between original and summary content in results
 - **Searchable summaries**: Ask questions that might be better answered by summary content
+
+**Environment Variables for Enhanced Processing:**
+- `MARKDOWN_MODE`: Processing mode (single/elements, default: single)
+- `MARKDOWN_STRATEGY`: Processing strategy (auto/hi_res/fast, default: auto)
+- `SUMMARIZATION_ENABLED`: Enable/disable summarization (true/false)
+- `SUMMARIZATION_MIN_WORDS`: Minimum words for summarization (default: 500)
+- `SUMMARIZATION_MAX_LENGTH`: Maximum words in generated summary (default: 200)
 
 ### Key Command Options
 
@@ -121,6 +158,8 @@ python main.py -v "/path/to/vault" --chroma-host localhost --enable-summarizatio
 | `--chroma-port` | ChromaDB port | `8000` |
 | `--enable-summarization` | Enable document summarization | `False` |
 | `--summarization-min-words` | Min words for summarization | `500` |
+| `--markdown-mode` | Markdown parsing mode (single/elements) | `single` |
+| `--markdown-strategy` | Markdown parsing strategy (auto/hi_res/fast) | `auto` |
 | `--verbose` | Enable detailed logging (blue), standard logs are green | `False` |
 | `--quiet` | Hide all log messages, show only essential output | `False` |
 

@@ -311,7 +311,9 @@ class TestSetupAgentLogger:
         mock_colored_formatter.assert_called_once_with(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s", verbose_mode=True
         )
-        mock_console_handler.setFormatter.assert_called_once_with(mock_console_formatter)
+        mock_console_handler.setFormatter.assert_called_once_with(
+            mock_console_formatter
+        )
 
     @patch("modules.logger.datetime")
     def test_setup_agent_logger_initialization_logging(

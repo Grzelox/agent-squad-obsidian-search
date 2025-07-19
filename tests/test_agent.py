@@ -104,7 +104,7 @@ class TestObsidianAgent:
 
         # Verify service initialization
         mock_document_processor.assert_called_once_with(
-            Path("/test/vault"), mock_logger
+            Path("/test/vault"), mock_logger, mock_llm.return_value
         )
         mock_vector_store_manager.assert_called_once_with(
             embeddings=mock_embeddings.return_value,
@@ -446,13 +446,18 @@ class TestObsidianAgent:
             expected_result = {
                 "answer": "This is a test answer.",
                 "sources": ["doc1.md", "doc2.md"],  # Unique sources
+                "source_details": {
+                    "original_sources": ["doc1.md", "doc2.md"],
+                    "summary_sources": [],
+                    "total_chunks": 3,
+                },
             }
             assert result == expected_result
 
             # Verify logging
             agent.logger.info.assert_any_call(f"Received query: {question}")
             agent.logger.info.assert_any_call(
-                "Query processed successfully. Found 3 chunks from 2 unique source documents"
+                "Query processed successfully. Found 3 chunks from 2 sources"
             )
 
             # Verify verbose logging
@@ -712,5 +717,5 @@ class TestObsidianAgent:
 
             # Verify logging includes all and unique counts
             agent.logger.info.assert_any_call(
-                "Query processed successfully. Found 5 chunks from 3 unique source documents"
+                "Query processed successfully. Found 5 chunks from 3 sources"
             )

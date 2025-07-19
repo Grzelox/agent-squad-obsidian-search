@@ -19,10 +19,15 @@ class TestConfig:
             "PERSIST_DIRECTORY",
             "COLLECTION_NAME",
             "LOGS_FILE",
+            "SUMMARIZATION_ENABLED",
+            "SUMMARIZATION_MIN_WORDS",
+            "SUMMARIZATION_MAX_LENGTH",
+            "MARKDOWN_MODE",
+            "MARKDOWN_STRATEGY",
         ]
 
         assert CONFIG_KEYS == expected_keys
-        assert len(CONFIG_KEYS) == 8
+        assert len(CONFIG_KEYS) == 13
 
     @patch("modules.config.os.getenv")
     def test_get_config_empty_environment(self, mock_getenv):
