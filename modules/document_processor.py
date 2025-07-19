@@ -137,7 +137,9 @@ class ObsidianDocumentProcessor:
         """Load a single markdown file using UnstructuredMarkdownLoader."""
         try:
             loader = UnstructuredMarkdownLoader(
-                str(file_path), mode=self.config.markdown_mode, strategy=self.config.markdown_strategy
+                str(file_path),
+                mode=self.config.markdown_mode,
+                strategy=self.config.markdown_strategy,
             )
 
             documents = loader.load()

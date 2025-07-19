@@ -27,22 +27,15 @@ class ObsidianAgent:
         verbose: bool = False,
         quiet: bool = False,
     ):
-        config = get_config()
-        self.log_file = log_file or config.get("LOGS_FILE", "obsidian_agent.log")
+        self.log_file = log_file
 
         self.obsidian_vault_path = Path(obsidian_vault_path)
-        self.model_name = model_name or config.get("MODEL_NAME", "llama3.2")
-        self.embedding_model = embedding_model or config.get(
-            "EMBEDDING_MODEL", "nomic-embed-text"
-        )
-        self.persist_directory = persist_directory or config.get(
-            "PERSIST_DIRECTORY", "./chroma_db"
-        )
+        self.model_name = model_name
+        self.embedding_model = embedding_model
+        self.persist_directory = persist_directory
         self.chroma_host = chroma_host
         self.chroma_port = chroma_port
-        self.collection_name = collection_name or config.get(
-            "COLLECTION_NAME", "obsidian_documents"
-        )
+        self.collection_name = collection_name
         self.verbose = verbose
         self.quiet = quiet
 
@@ -149,7 +142,6 @@ class ObsidianAgent:
                 f"Retrieved {len(result.get('context', []))} document chunks",
             )
 
-            # Process sources and categorize by content type
             all_sources = []
             summary_sources = []
             original_sources = []
@@ -165,11 +157,9 @@ class ObsidianAgent:
                 if doc.metadata.get("is_summary", False):
                     summary_sources.append(doc.metadata["source"])
                 else:
-                    # Get the base source name (remove any path info for deduplication)
                     base_source = doc.metadata["source"]
                     original_sources.append(base_source)
 
-            # Remove duplicates while preserving order
             unique_original_sources = list(dict.fromkeys(original_sources))
             unique_summary_sources = list(dict.fromkeys(summary_sources))
             all_unique_sources = list(
@@ -216,7 +206,7 @@ class ObsidianAgent:
 
         try:
             config = get_config()
-            retrieval_k = config.get("RETRIEVAL_K", 5)
+            retrieval_k = config.retrieval_k
 
             self.logger.debug(
                 f"Creating retriever with similarity search (k={retrieval_k})"
@@ -255,13 +245,11 @@ class ObsidianAgent:
             if not vectorstore:
                 return {}
 
-            # Get all documents and extract summaries
             all_docs = vectorstore.get()
             summaries = {}
 
             for i, metadata in enumerate(all_docs.get("metadatas", [])):
                 if metadata and metadata.get("is_summary", False):
-                    # This is a summary document
                     original_source = metadata.get("original_source", f"document_{i}")
                     summary_text = (
                         all_docs.get("documents", [])[i]

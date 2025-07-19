@@ -50,7 +50,6 @@ def main(
         click.echo("Error: --verbose and --quiet cannot be used together", err=True)
         raise click.Abort()
 
-    # Get configuration instance and update with CLI arguments
     config = get_config()
     config.update_from_cli(
         model_name=model,
@@ -97,6 +96,7 @@ def main(
             model_name=config.model_name,
             embedding_model=config.embedding_model,
             persist_directory=config.persist_directory,
+            log_file=config.logs_file,
             chroma_host=chroma_host,
             chroma_port=chroma_port if chroma_host else None,
             collection_name=config.collection_name,
@@ -129,6 +129,7 @@ def main(
                 main_logger.info(f"User exited after {query_count} queries")
                 break
 
+            # Handle special commands for summarization
             if question.lower() in ["summaries", "list summaries"]:
                 try:
                     summaries = agent.get_document_summaries()
