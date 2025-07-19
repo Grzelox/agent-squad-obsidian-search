@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Optional, Any
+from typing import Optional, Any, Dict
 from langchain_ollama import OllamaEmbeddings, OllamaLLM
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.chains.retrieval import create_retrieval_chain
@@ -27,22 +27,15 @@ class ObsidianAgent:
         verbose: bool = False,
         quiet: bool = False,
     ):
-        config = get_config()
-        self.log_file = log_file or config.get("LOGS_FILE")
+        self.log_file = log_file
 
         self.obsidian_vault_path = Path(obsidian_vault_path)
-        self.model_name = model_name or config.get("MODEL_NAME", "llama3.2")
-        self.embedding_model = embedding_model or config.get(
-            "EMBEDDING_MODEL", "nomic-embed-text"
-        )
-        self.persist_directory = persist_directory or config.get(
-            "PERSIST_DIRECTORY", "./chroma_db"
-        )
+        self.model_name = model_name
+        self.embedding_model = embedding_model
+        self.persist_directory = persist_directory
         self.chroma_host = chroma_host
         self.chroma_port = chroma_port
-        self.collection_name = collection_name or config.get(
-            "COLLECTION_NAME", "obsidian_documents"
-        )
+        self.collection_name = collection_name
         self.verbose = verbose
         self.quiet = quiet
 
@@ -69,7 +62,7 @@ class ObsidianAgent:
         self.llm = OllamaLLM(model=self.model_name)
 
         self.document_processor = ObsidianDocumentProcessor(
-            self.obsidian_vault_path, self.logger
+            self.obsidian_vault_path, self.logger, self.llm
         )
         self.vector_store_manager = VectorStoreManager(
             embeddings=self.embeddings,
@@ -149,18 +142,50 @@ class ObsidianAgent:
                 f"Retrieved {len(result.get('context', []))} document chunks",
             )
 
-            all_sources = [doc.metadata["source"] for doc in result["context"]]
-            sources = list(dict.fromkeys(all_sources))
+            all_sources = []
+            summary_sources = []
+            original_sources = []
+
+            for doc in result["context"]:
+                source_info = {
+                    "source": doc.metadata["source"],
+                    "is_summary": doc.metadata.get("is_summary", False),
+                    "content_type": doc.metadata.get("content_type", "original"),
+                }
+                all_sources.append(source_info)
+
+                if doc.metadata.get("is_summary", False):
+                    summary_sources.append(doc.metadata["source"])
+                else:
+                    base_source = doc.metadata["source"]
+                    original_sources.append(base_source)
+
+            unique_original_sources = list(dict.fromkeys(original_sources))
+            unique_summary_sources = list(dict.fromkeys(summary_sources))
+            all_unique_sources = list(
+                dict.fromkeys([info["source"] for info in all_sources])
+            )
 
             self.logger.info(
-                f"Query processed successfully. Found {len(all_sources)} chunks from {len(sources)} unique source documents"
+                f"Query processed successfully. Found {len(all_sources)} chunks from {len(all_unique_sources)} sources"
             )
-            self.logger.debug(f"All sources: {all_sources}")
-            self.logger.debug(f"Unique sources: {sources}")
+            if unique_summary_sources:
+                self.logger.info(
+                    f"Retrieved {len(unique_summary_sources)} summary documents"
+                )
+            if unique_original_sources:
+                self.logger.info(
+                    f"Retrieved {len(unique_original_sources)} original documents"
+                )
 
             response = {
                 "answer": result["answer"],
-                "sources": sources,
+                "sources": all_unique_sources,
+                "source_details": {
+                    "original_sources": unique_original_sources,
+                    "summary_sources": unique_summary_sources,
+                    "total_chunks": len(all_sources),
+                },
             }
 
             self.logger.debug(f"Answer length: {len(result['answer'])} characters")
@@ -181,7 +206,7 @@ class ObsidianAgent:
 
         try:
             config = get_config()
-            retrieval_k = config.get("RETRIEVAL_K", 5)
+            retrieval_k = config.retrieval_k
 
             self.logger.debug(
                 f"Creating retriever with similarity search (k={retrieval_k})"
@@ -212,3 +237,64 @@ class ObsidianAgent:
         except Exception as e:
             self.logger.error(f"Error setting up QA chain: {str(e)}")
             raise
+
+    def get_document_summaries(self) -> dict:
+        """Retrieve all document summaries from the vector store."""
+        try:
+            vectorstore = self.vector_store_manager.get_vectorstore()
+            if not vectorstore:
+                return {}
+
+            all_docs = vectorstore.get()
+            summaries = {}
+
+            for i, metadata in enumerate(all_docs.get("metadatas", [])):
+                if metadata and metadata.get("is_summary", False):
+                    original_source = metadata.get("original_source", f"document_{i}")
+                    summary_text = (
+                        all_docs.get("documents", [])[i]
+                        if all_docs.get("documents")
+                        else ""
+                    )
+
+                    summaries[original_source] = {
+                        "summary": summary_text,
+                        "word_count": metadata.get("original_word_count", "unknown"),
+                        "summary_word_count": metadata.get("word_count", "unknown"),
+                        "summary_model": metadata.get("summary_model", "unknown"),
+                    }
+
+            self.logger.info(f"Retrieved {len(summaries)} document summaries")
+            return summaries
+
+        except Exception as e:
+            self.logger.error(f"Error retrieving document summaries: {str(e)}")
+            return {}
+
+    def get_summary_for_document(self, document_path: str) -> Optional[str]:
+        """Get the summary for a specific document."""
+        summaries = self.get_document_summaries()
+        return summaries.get(document_path, {}).get("summary")
+
+    def get_summarized_documents_stats(self) -> dict:
+        """Get statistics about summarized documents."""
+        summaries = self.get_document_summaries()
+
+        if not summaries:
+            return {"total_summaries": 0, "avg_word_count": 0, "documents": []}
+
+        word_counts = []
+        for info in summaries.values():
+            wc = info.get("word_count", 0)
+            if isinstance(wc, int):
+                word_counts.append(wc)
+            elif isinstance(wc, str) and wc.isdigit():
+                word_counts.append(int(wc))
+
+        return {
+            "total_summaries": len(summaries),
+            "avg_word_count": (
+                sum(word_counts) // len(word_counts) if word_counts else 0
+            ),
+            "documents": list(summaries.keys()),
+        }

@@ -81,7 +81,69 @@ python main.py -v "/path/to/your/obsidian/vault" --chroma-host localhost --chrom
 The agent will:
 1. Copy your vault to a working directory (preserves original)
 2. Process and index your documents
-3. Start an interactive Q&A session
+3. Optionally generate summaries for long documents (if enabled)
+4. Start an interactive Q&A session
+
+### Document Summarization
+
+The agent can automatically generate concise summaries for long documents during indexing:
+
+```bash
+# Enable summarization with default settings (500+ words)
+python main.py -v "/path/to/vault" --enable-summarization
+
+# Enable summarization with custom word threshold
+python main.py -v "/path/to/vault" --enable-summarization --summarization-min-words 300
+
+# Use with remote ChromaDB and summarization
+python main.py -v "/path/to/vault" --chroma-host localhost --enable-summarization --verbose
+```
+
+### Enhanced Markdown Processing
+
+The agent uses LangChain's `UnstructuredMarkdownLoader` for superior markdown parsing:
+
+```bash
+# Use elements mode for structured parsing (splits by headings, paragraphs, etc.)
+python main.py -v "/path/to/vault" --markdown-mode elements
+
+# Use high-resolution strategy for better quality parsing
+python main.py -v "/path/to/vault" --markdown-strategy hi_res
+
+# Combine enhanced parsing with summarization
+python main.py -v "/path/to/vault" --enable-summarization --markdown-mode elements --markdown-strategy hi_res
+```
+
+**Markdown Processing Modes:**
+- **single**: Treats each file as one document (preserves overall structure)
+- **elements**: Splits documents by structure (headings, paragraphs, lists, etc.)
+
+**Markdown Processing Strategies:**
+- **auto**: Automatically choose best strategy (default)
+- **hi_res**: Higher quality parsing with more computational cost
+- **fast**: Faster parsing with good quality
+
+**Benefits of Enhanced Markdown Processing:**
+- **Better structure preservation**: Maintains markdown hierarchy and elements
+- **Improved metadata**: Enhanced file information and element categorization  
+- **Flexible parsing**: Choose between document-level or element-level processing
+- **Obsidian compatibility**: Better handling of Obsidian-specific markdown features
+
+**Summarization Features:**
+- **Automatic detection**: Only documents above the word threshold are summarized
+- **Intelligent summaries**: AI-generated summaries focus on key concepts and main ideas
+- **Vectorized summaries**: Summaries are embedded and stored in vector database for semantic search
+- **Hybrid retrieval**: Search results can include both original content and summary content
+- **Special commands**: Use `summaries` and `stats` commands in the interactive session
+- **Enhanced search results**: Clear distinction between original and summary content in results
+- **Searchable summaries**: Ask questions that might be better answered by summary content
+
+**Environment Variables for Enhanced Processing:**
+- `MARKDOWN_MODE`: Processing mode (single/elements, default: single)
+- `MARKDOWN_STRATEGY`: Processing strategy (auto/hi_res/fast, default: auto)
+- `SUMMARIZATION_ENABLED`: Enable/disable summarization (true/false)
+- `SUMMARIZATION_MIN_WORDS`: Minimum words for summarization (default: 500)
+- `SUMMARIZATION_MAX_LENGTH`: Maximum words in generated summary (default: 200)
 
 ### Key Command Options
 
@@ -94,13 +156,29 @@ The agent will:
 | `-r, --rebuild` | Force rebuild vector store | `False` |
 | `--chroma-host` | ChromaDB host for remote connection | `None` |
 | `--chroma-port` | ChromaDB port | `8000` |
+| `--enable-summarization` | Enable document summarization | `False` |
+| `--summarization-min-words` | Min words for summarization | `500` |
+| `--markdown-mode` | Markdown parsing mode (single/elements) | `single` |
+| `--markdown-strategy` | Markdown parsing strategy (auto/hi_res/fast) | `auto` |
 | `--verbose` | Enable detailed logging (blue), standard logs are green | `False` |
 | `--quiet` | Hide all log messages, show only essential output | `False` |
 
 ### Example Queries
 - "What are my notes about machine learning?"
-- "Summarize my meeting notes from last week"
+- "Summarize my meeting notes from last week"  
 - "Tell me about the project ideas I've written down"
+- "What are the main themes in my research?" (may retrieve summary content)
+- "Give me an overview of my thoughts on productivity" (benefits from summary search)
+
+**Special Commands (when summarization is enabled):**
+- Type `summaries` to view all document summaries
+- Type `stats` to see summarization statistics
+
+**Enhanced Search Results:**
+When summarization is enabled, search results clearly show:
+- 📄 **Original content**: Chunks from actual document text
+- 🎯 **Summary content**: AI-generated summaries when they're most relevant
+- 📊 **Retrieval statistics**: Total chunks from both content types
 
 Type `quit` to exit.
 

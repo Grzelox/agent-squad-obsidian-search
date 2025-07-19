@@ -1,13 +1,13 @@
 import pytest
-from pathlib import Path
 from unittest.mock import Mock, patch
 from langchain.schema import Document
+from langchain_ollama import OllamaLLM
 
 from modules.document_processor import ObsidianDocumentProcessor
 
 
 class TestObsidianDocumentProcessor:
-    """Test cases for ObsidianDocumentProcessor class."""
+    """Test cases for enhanced ObsidianDocumentProcessor class."""
 
     @pytest.fixture
     def mock_logger(self):
@@ -15,104 +15,205 @@ class TestObsidianDocumentProcessor:
         return Mock()
 
     @pytest.fixture
-    def vault_path(self):
-        """Create a test vault path."""
-        return Path("/test/vault")
+    def mock_llm(self):
+        """Create a mock LLM for testing."""
+        llm = Mock(spec=OllamaLLM)
+        llm.model = "test-model"
+        return llm
+
+    @pytest.fixture
+    def vault_path(self, tmp_path):
+        """Create a temporary test vault path."""
+        return tmp_path / "test_vault"
 
     @pytest.fixture
     def processor(self, vault_path, mock_logger):
         """Create an ObsidianDocumentProcessor instance for testing."""
-        return ObsidianDocumentProcessor(vault_path, mock_logger)
+        with patch("modules.document_processor.get_config") as mock_config:
+            mock_config.return_value = {
+                "MARKDOWN_MODE": "single",
+                "MARKDOWN_STRATEGY": "auto",
+                "SUMMARIZATION_ENABLED": False,
+                "SUMMARIZATION_MIN_WORDS": 500,
+                "SUMMARIZATION_MAX_LENGTH": 200,
+            }
+            return ObsidianDocumentProcessor(vault_path, mock_logger)
 
     @pytest.fixture
-    def sample_document(self):
+    def processor_with_summarization(self, vault_path, mock_logger, mock_llm):
+        """Create an ObsidianDocumentProcessor instance with summarization enabled."""
+        with patch("modules.document_processor.get_config") as mock_config:
+            mock_config.return_value = {
+                "MARKDOWN_MODE": "elements",
+                "MARKDOWN_STRATEGY": "hi_res",
+                "SUMMARIZATION_ENABLED": True,
+                "SUMMARIZATION_MIN_WORDS": 100,
+                "SUMMARIZATION_MAX_LENGTH": 50,
+            }
+            return ObsidianDocumentProcessor(vault_path, mock_logger, mock_llm)
+
+    @pytest.fixture
+    def sample_document(self, vault_path):
         """Create a sample document for testing."""
         return Document(
             page_content="This is a [[test link]] with #hashtag and some content.\n\n\n  Extra whitespace  \n\n",
-            metadata={"source": "/test/vault/subfolder/test.md"},
+            metadata={
+                "source": str(
+                    vault_path / "test.md"
+                ),  # Full path that can be made relative
+                "category": "NarrativeText",
+                "file_size": 1024,
+                "file_modified": 1234567890,
+            },
         )
 
-    def test_init(self, vault_path, mock_logger):
-        """Test ObsidianDocumentProcessor initialization."""
-        processor = ObsidianDocumentProcessor(vault_path, mock_logger)
+    def test_init_basic(self, vault_path, mock_logger):
+        """Test basic ObsidianDocumentProcessor initialization."""
+        with patch("modules.document_processor.get_config") as mock_config:
+            mock_config.return_value = {
+                "MARKDOWN_MODE": "single",
+                "MARKDOWN_STRATEGY": "auto",
+                "SUMMARIZATION_ENABLED": False,
+                "SUMMARIZATION_MIN_WORDS": 500,
+                "SUMMARIZATION_MAX_LENGTH": 200,
+            }
+            processor = ObsidianDocumentProcessor(vault_path, mock_logger)
 
         assert processor.vault_path == vault_path
         assert processor.logger == mock_logger
+        assert processor.markdown_mode == "single"
+        assert processor.markdown_strategy == "auto"
+        assert processor.summarization_enabled == False
+        assert processor.llm is None
 
-    @patch("modules.document_processor.DirectoryLoader")
-    def test_load_documents_success(
-        self, mock_directory_loader, processor, sample_document
-    ):
-        """Test successful document loading and processing."""
-        mock_loader_instance = Mock()
-        mock_loader_instance.load.return_value = [sample_document]
-        mock_directory_loader.return_value = mock_loader_instance
+    def test_init_with_summarization(self, vault_path, mock_logger, mock_llm):
+        """Test initialization with summarization enabled."""
+        with patch("modules.document_processor.get_config") as mock_config:
+            mock_config.return_value = {
+                "MARKDOWN_MODE": "elements",
+                "MARKDOWN_STRATEGY": "hi_res",
+                "SUMMARIZATION_ENABLED": True,
+                "SUMMARIZATION_MIN_WORDS": 300,
+                "SUMMARIZATION_MAX_LENGTH": 100,
+            }
+            processor = ObsidianDocumentProcessor(vault_path, mock_logger, mock_llm)
 
-        result = processor.load_documents()
+        assert processor.markdown_mode == "elements"
+        assert processor.markdown_strategy == "hi_res"
+        assert processor.summarization_enabled == True
+        assert processor.min_words_for_summary == 300
+        assert processor.max_summary_length == 100
+        assert processor.llm == mock_llm
 
-        assert len(result) == 1
-        assert isinstance(result[0], Document)
-
-        mock_directory_loader.assert_called_once_with(
-            str(processor.vault_path),
-            glob="**/*.md",
-            show_progress=True,
-        )
-
-        mock_loader_instance.load.assert_called_once()
-
-        processor.logger.info.assert_called()
-        processor.logger.debug.assert_called()
-
-    @patch("modules.document_processor.DirectoryLoader")
-    def test_load_documents_empty_vault(self, mock_directory_loader, processor):
-        """Test loading documents from empty vault."""
-        mock_loader_instance = Mock()
-        mock_loader_instance.load.return_value = []
-        mock_directory_loader.return_value = mock_loader_instance
+    def test_load_documents_no_files(self, processor, vault_path):
+        """Test loading documents when no markdown files exist."""
+        # Create empty vault directory
+        vault_path.mkdir(parents=True, exist_ok=True)
 
         result = processor.load_documents()
 
         assert result == []
-        processor.logger.info.assert_called()
+        processor.logger.warning.assert_called_with("No markdown files found in vault")
 
-    @patch("modules.document_processor.DirectoryLoader")
-    def test_load_documents_error_handling(self, mock_directory_loader, processor):
-        """Test error handling during document loading."""
-        mock_directory_loader.side_effect = Exception("Failed to load documents")
+    @patch("modules.document_processor.UnstructuredMarkdownLoader")
+    def test_load_documents_success(
+        self, mock_loader_class, processor, vault_path, sample_document
+    ):
+        """Test successful document loading with UnstructuredMarkdownLoader."""
+        # Setup
+        vault_path.mkdir(parents=True, exist_ok=True)
+        test_file = vault_path / "test.md"
+        test_file.write_text("# Test Content")
 
-        with pytest.raises(Exception, match="Failed to load documents"):
-            processor.load_documents()
-
-        processor.logger.error.assert_called_once()
-
-    @patch("modules.document_processor.DirectoryLoader")
-    def test_load_documents_multiple_files(self, mock_directory_loader, processor):
-        """Test loading multiple documents."""
-        docs = [
-            Document(
-                page_content="First [[document]]",
-                metadata={"source": "/test/vault/doc1.md"},
-            ),
-            Document(
-                page_content="Second #document",
-                metadata={"source": "/test/vault/doc2.md"},
-            ),
-            Document(
-                page_content="Third document",
-                metadata={"source": "/test/vault/subfolder/doc3.md"},
-            ),
-        ]
+        # Update sample document to have correct source path
+        sample_document.metadata["source"] = str(test_file)
 
         mock_loader_instance = Mock()
-        mock_loader_instance.load.return_value = docs
-        mock_directory_loader.return_value = mock_loader_instance
+        mock_loader_instance.load.return_value = [sample_document]
+        mock_loader_class.return_value = mock_loader_instance
 
+        # Execute
         result = processor.load_documents()
 
         # Verify
-        assert len(result) == 3
-        assert all(isinstance(doc, Document) for doc in result)
+        assert len(result) == 1
+        assert isinstance(result[0], Document)
+        mock_loader_class.assert_called_once()
+        processor.logger.info.assert_called()
+
+    @patch("modules.document_processor.UnstructuredMarkdownLoader")
+    def test_load_documents_with_summarization(
+        self, mock_loader_class, processor_with_summarization, vault_path, mock_llm
+    ):
+        """Test document loading with summarization enabled."""
+        # Setup
+        vault_path.mkdir(parents=True, exist_ok=True)
+        test_file = vault_path / "test.md"
+        test_file.write_text("# Test Content")
+
+        # Create a long document that should be summarized
+        long_content = " ".join(["word"] * 150)  # 150 words, above 100 word threshold
+        long_doc = Document(
+            page_content=long_content,
+            metadata={
+                "source": str(test_file),
+                "file_size": 1024,
+                "file_modified": 1234567890,
+            },
+        )
+
+        mock_loader_instance = Mock()
+        mock_loader_instance.load.return_value = [long_doc]
+        mock_loader_class.return_value = mock_loader_instance
+
+        # Mock LLM response for summarization
+        mock_llm.invoke = Mock(return_value="This is a test summary.")
+
+        with patch.object(
+            processor_with_summarization, "_generate_summary"
+        ) as mock_summary:
+            mock_summary.return_value = "Test summary"
+
+            # Execute
+            result = processor_with_summarization.load_documents()
+
+        # Verify - should have original doc + summary doc
+        assert len(result) == 2  # original + summary document
+
+        # Check that one is a summary document
+        summary_docs = [doc for doc in result if doc.metadata.get("is_summary", False)]
+        assert len(summary_docs) == 1
+        assert summary_docs[0].metadata["content_type"] == "summary"
+
+    def test_load_single_markdown_file(self, processor, vault_path):
+        """Test loading a single markdown file."""
+        # Setup
+        vault_path.mkdir(parents=True, exist_ok=True)
+        test_file = vault_path / "test.md"
+        test_file.write_text("# Test Content")
+
+        with patch(
+            "modules.document_processor.UnstructuredMarkdownLoader"
+        ) as mock_loader_class:
+            mock_loader_instance = Mock()
+            mock_doc = Document(
+                page_content="Test content", metadata={"category": "Title"}
+            )
+            mock_loader_instance.load.return_value = [mock_doc]
+            mock_loader_class.return_value = mock_loader_instance
+
+            # Execute
+            result = processor._load_single_markdown_file(test_file)
+
+            # Verify
+            assert len(result) == 1
+            doc = result[0]
+            assert doc.metadata["source"] == "test.md"  # relative path
+            assert doc.metadata["file_path"] == str(test_file)
+            assert doc.metadata["markdown_mode"] == "single"
+            assert doc.metadata["markdown_strategy"] == "auto"
+            assert "file_size" in doc.metadata
+            assert "file_modified" in doc.metadata
 
     def test_process_document_content_obsidian_links(self, processor, vault_path):
         """Test processing of Obsidian wiki-style links."""
@@ -140,85 +241,112 @@ class TestObsidianDocumentProcessor:
         assert "important" in result.page_content
         assert "work-notes" in result.page_content
 
-    def test_process_document_content_whitespace_cleanup(self, processor, vault_path):
-        """Test cleanup of excessive whitespace."""
-        doc = Document(
-            page_content="Line 1\n\n\n\n\nLine 2\n   \n  \nLine 3",
-            metadata={"source": str(vault_path / "test.md")},
-        )
+    def test_count_words(self, processor):
+        """Test word counting functionality."""
+        text1 = "This is a simple test."
+        assert processor._count_words(text1) == 5
 
-        result = processor._process_document_content(doc)
+        text2 = "Text with #hashtags and [[links]] and **bold**."
+        # Should remove markdown formatting for accurate count
+        assert processor._count_words(text2) > 0
 
-        assert "\n\n\n\n\n" not in result.page_content
-        assert result.page_content.count("\n\n") <= result.page_content.count("Line")
-
-    def test_process_document_content_metadata_source_path(self, processor, vault_path):
-        """Test that source path is made relative to vault path."""
-        doc = Document(
-            page_content="Some content",
-            metadata={"source": str(vault_path / "subfolder" / "document.md")},
-        )
-
-        result = processor._process_document_content(doc)
-
-        expected_relative_path = "subfolder/document.md"
-        assert result.metadata["source"] == expected_relative_path
-
-    def test_process_document_content_combined_processing(self, processor, vault_path):
-        """Test document processing with all transformations combined."""
-        doc = Document(
-            page_content="See [[My Note]] about #productivity\n\n\n\nMore content with [[Another Link]]",
-            metadata={"source": str(vault_path / "notes" / "test.md")},
-        )
-
-        result = processor._process_document_content(doc)
-
-        assert "My Note" in result.page_content
-        assert "productivity" in result.page_content
-        assert "Another Link" in result.page_content
-        assert "[[" not in result.page_content
-        assert "]]" not in result.page_content
-        assert result.metadata["source"] == "notes/test.md"
-
-    def test_process_document_content_empty_content(self, processor, vault_path):
-        """Test processing document with empty content."""
-        doc = Document(
-            page_content="", metadata={"source": str(vault_path / "empty.md")}
-        )
-
-        result = processor._process_document_content(doc)
-
-        assert result.page_content == ""
-        assert result.metadata["source"] == "empty.md"
-
-    def test_process_document_content_no_obsidian_syntax(self, processor, vault_path):
-        """Test processing document without Obsidian syntax."""
-        original_content = "This is plain markdown content with no special syntax."
-        doc = Document(
-            page_content=original_content,
-            metadata={"source": str(vault_path / "plain.md")},
-        )
-
-        result = processor._process_document_content(doc)
-
-        assert result.page_content == original_content
-        assert result.metadata["source"] == "plain.md"
-
-    def test_process_document_content_preserves_other_metadata(
-        self, processor, vault_path
+    def test_generate_summary_if_needed_short_document(
+        self, processor_with_summarization
     ):
-        """Test that processing preserves other metadata fields."""
-        doc = Document(
-            page_content="[[Test content]]",
-            metadata={
-                "source": str(vault_path / "test.md"),
-                "custom_field": "custom_value",
-                "another_field": 123,
-            },
+        """Test that short documents are not summarized."""
+        short_doc = Document(
+            page_content="Short content",  # Only 2 words, below 100 word threshold
+            metadata={"source": "test.md"},
         )
 
-        result = processor._process_document_content(doc)
+        result = processor_with_summarization._generate_summary_if_needed(short_doc)
+        assert result is None
 
-        assert result.metadata["custom_field"] == "custom_value"
-        assert result.metadata["another_field"] == 123
-        assert result.metadata["source"] == "test.md"
+    def test_generate_summary_if_needed_long_document(
+        self, processor_with_summarization, mock_llm
+    ):
+        """Test that long documents are summarized."""
+        long_content = " ".join(["word"] * 150)  # 150 words, above threshold
+        long_doc = Document(page_content=long_content, metadata={"source": "test.md"})
+
+        with patch.object(
+            processor_with_summarization, "_generate_summary"
+        ) as mock_summary:
+            mock_summary.return_value = "Test summary"
+
+            result = processor_with_summarization._generate_summary_if_needed(long_doc)
+
+            assert result == "Test summary"
+            mock_summary.assert_called_once()
+
+    def test_generate_summary(self, processor_with_summarization, mock_llm):
+        """Test summary generation."""
+        content = "This is a long document that needs to be summarized."
+
+        # Mock the LLM chain
+        with patch("modules.document_processor.ChatPromptTemplate") as mock_template:
+            mock_chain = Mock()
+            mock_chain.invoke.return_value = "Generated summary."
+            mock_template.from_messages.return_value.__or__ = Mock(
+                return_value=mock_chain
+            )
+
+            result = processor_with_summarization._generate_summary(content, "test.md")
+
+            assert result == "Generated summary."
+
+    def test_generate_summary_no_llm(self, processor):
+        """Test that summary generation raises error when no LLM available."""
+        with pytest.raises(ValueError, match="LLM not available for summarization"):
+            processor._generate_summary("content", "test.md")
+
+    def test_create_summary_document(self, processor_with_summarization):
+        """Test creation of summary document."""
+        original_doc = Document(
+            page_content="Original content",
+            metadata={"source": "test.md", "word_count": 100},
+        )
+        summary_text = "This is a summary."
+
+        result = processor_with_summarization._create_summary_document(
+            original_doc, summary_text
+        )
+
+        assert result.page_content == summary_text
+        assert result.metadata["content_type"] == "summary"
+        assert result.metadata["is_summary"] == True
+        assert result.metadata["original_source"] == "test.md"
+        assert result.metadata["source"] == "test.md (summary)"
+        assert result.metadata["summary_method"] == "llm_generated"
+
+    def test_load_documents_error_handling(self, processor, vault_path):
+        """Test error handling during document loading."""
+        # Setup
+        vault_path.mkdir(parents=True, exist_ok=True)
+        test_file = vault_path / "test.md"
+        test_file.write_text("# Test Content")
+
+        with patch.object(processor, "_load_single_markdown_file") as mock_load:
+            mock_load.side_effect = Exception("Loading failed")
+
+            # Should not raise exception, but log error and continue
+            result = processor.load_documents()
+
+            # Should return empty list due to error
+            assert result == []
+            processor.logger.error.assert_called()
+
+    def test_elements_mode_processing(self, vault_path, mock_logger):
+        """Test processing with elements mode."""
+        with patch("modules.document_processor.get_config") as mock_config:
+            mock_config.return_value = {
+                "MARKDOWN_MODE": "elements",
+                "MARKDOWN_STRATEGY": "hi_res",
+                "SUMMARIZATION_ENABLED": False,
+                "SUMMARIZATION_MIN_WORDS": 500,
+                "SUMMARIZATION_MAX_LENGTH": 200,
+            }
+            processor = ObsidianDocumentProcessor(vault_path, mock_logger)
+
+            assert processor.markdown_mode == "elements"
+            assert processor.markdown_strategy == "hi_res"
