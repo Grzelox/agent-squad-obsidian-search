@@ -145,6 +145,41 @@ python main.py -v "/path/to/vault" --enable-summarization --markdown-mode elemen
 - `SUMMARIZATION_MIN_WORDS`: Minimum words for summarization (default: 500)
 - `SUMMARIZATION_MAX_LENGTH`: Maximum words in generated summary (default: 200)
 
+### Function Calling Capabilities
+
+The agent now supports intelligent function calling, allowing it to perform vault management tasks beyond just semantic search:
+
+**Available Functions:**
+- **📋 List Documents**: `list_obsidian_documents` - Get complete vault inventory with metadata
+- **🔍 Search by Name**: `search_documents_by_name` - Find documents by filename or path
+- **📄 Document Info**: `get_document_info` - Get detailed information about specific documents
+
+**Example Function Call Queries:**
+- "What documents are available?" → Lists all markdown files with metadata
+- "Search for documents about python" → Finds files with "python" in the name
+- "Tell me about my README.md file" → Shows detailed file information
+- "List all documents in the project folder" → Shows files in specific directories
+- "What files were modified recently?" → Returns files sorted by modification date
+
+**How Function Calling Works:**
+1. **Smart Detection**: The agent analyzes your question to determine if tools are needed
+2. **Function Execution**: If appropriate, calls Python functions to get real-time vault data
+3. **Fallback**: For content questions, automatically falls back to semantic search
+4. **Hybrid Responses**: Can combine function calls with knowledge base search
+
+**Function Call vs Semantic Search:**
+- **Function calls** are used for vault structure, file listing, and metadata queries
+- **Semantic search** is used for content-based questions about what's inside documents
+- The agent automatically chooses the best approach for each query
+
+**Visual Indicators:**
+When function calls are used, you'll see:
+```
+🔧 Function calls used:
+  - list_obsidian_documents
+📄 Response generated using function calls
+```
+
 ### Key Command Options
 
 | Option | Description | Default |
@@ -164,11 +199,20 @@ python main.py -v "/path/to/vault" --enable-summarization --markdown-mode elemen
 | `--quiet` | Hide all log messages, show only essential output | `False` |
 
 ### Example Queries
+
+**Content-Based Questions (Semantic Search):**
 - "What are my notes about machine learning?"
 - "Summarize my meeting notes from last week"
 - "Tell me about the project ideas I've written down"
 - "What are the main themes in my research?" (may retrieve summary content)
 - "Give me an overview of my thoughts on productivity" (benefits from summary search)
+
+**Vault Management Questions (Function Calls):**
+- "What documents are available in my vault?"
+- "Search for files containing 'python' in the name"
+- "Tell me about my README.md file"
+- "List all my meeting notes"
+- "What files were created recently?"
 
 **Special Commands (when summarization is enabled):**
 - Type `summaries` to view all document summaries

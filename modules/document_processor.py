@@ -65,7 +65,6 @@ class ObsidianDocumentProcessor:
                     raw_documents.extend(docs)
                 except Exception as e:
                     self.logger.error(f"Error loading {md_file}: {str(e)}")
-                    # Continue with other files
 
             self.logger.info(
                 f"Successfully loaded {len(raw_documents)} document chunks from markdown files"
@@ -84,7 +83,6 @@ class ObsidianDocumentProcessor:
 
                 processed_doc = self._process_document_content(doc)
 
-                # Add summarization if enabled and LLM is available
                 if self.config.summarization_enabled and self.llm:
                     summary = self._generate_summary_if_needed(processed_doc)
                     if summary:
@@ -98,7 +96,6 @@ class ObsidianDocumentProcessor:
                             f"Generated summary for: {processed_doc.metadata.get('source', 'unknown')}"
                         )
 
-                        # Create a separate document for the summary to be vectorized
                         summary_doc = self._create_summary_document(
                             processed_doc, summary
                         )
@@ -124,7 +121,7 @@ class ObsidianDocumentProcessor:
                 )
                 print(f"Generated summaries for {summarized_count} long documents")
                 print(
-                    f"📝 Created {len(summary_docs)} summary documents for semantic search"
+                    f"Created {len(summary_docs)} summary documents for semantic search"
                 )
 
             return all_documents
@@ -172,10 +169,8 @@ class ObsidianDocumentProcessor:
         )  # Clean up tags #tag -> tag
         content = re.sub(r"\n\s*\n", "\n\n", content)  # Clean up excessive whitespace
 
-        # Update document content and metadata
         doc.page_content = content
 
-        # Only make path relative if it's not already relative
         source_path = doc.metadata.get("source", "")
         if source_path and Path(source_path).is_absolute():
             try:
@@ -183,7 +178,6 @@ class ObsidianDocumentProcessor:
                     Path(source_path).relative_to(self.vault_path)
                 )
             except ValueError:
-                # If we can't make it relative, leave it as is
                 pass
 
         return doc
@@ -238,10 +232,8 @@ class ObsidianDocumentProcessor:
         chain = prompt_template | self.llm
         result = chain.invoke({"content": content})
 
-        # Clean up the summary
         summary = result.strip()
 
-        # Ensure it's within word limit
         words = summary.split()
         if len(words) > self.config.summarization_max_length:
             summary = " ".join(words[: self.config.summarization_max_length]) + "..."
@@ -255,7 +247,6 @@ class ObsidianDocumentProcessor:
         summary_doc = Document(
             page_content=summary,
             metadata={
-                # Mark this as a summary document
                 "content_type": "summary",
                 "original_source": original_doc.metadata.get("source", "unknown"),
                 "source": f"{original_doc.metadata.get('source', 'unknown')} (summary)",

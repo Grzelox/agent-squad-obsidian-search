@@ -1,14 +1,13 @@
 import logging
 from datetime import datetime
-from pathlib import Path
 import sys
 from typing_extensions import Optional
+import os
 
 
 class ColoredFormatter(logging.Formatter):
     """Custom formatter with simplified color scheme."""
 
-    # ANSI color codes
     COLORS = {
         "GREEN": "\033[32m",  # Green for standard logs
         "BLUE": "\033[94m",  # Blue for verbose logs
@@ -46,8 +45,9 @@ def setup_agent_logger(
     quiet: bool = False,
 ) -> logging.Logger:
     """Setup logging configuration for the agent."""
-    log_dir = Path("logs")
-    log_dir.mkdir(exist_ok=True)
+    log_dir = os.path.dirname(log_file)
+    if log_dir and not os.path.exists(log_dir):
+        os.makedirs(log_dir, exist_ok=True)
 
     logger_name = f"ObsidianAgent_{agent_id or id(object())}"
     logger = logging.getLogger(logger_name)
@@ -59,7 +59,7 @@ def setup_agent_logger(
 
     logger.handlers.clear()
 
-    file_handler = logging.FileHandler(log_dir / log_file)
+    file_handler = logging.FileHandler(log_file)
     file_handler.setLevel(logging.DEBUG)
     file_formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

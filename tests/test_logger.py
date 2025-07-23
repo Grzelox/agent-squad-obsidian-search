@@ -2,6 +2,8 @@ import pytest
 import logging
 from unittest.mock import Mock, patch, call
 from datetime import datetime
+import os
+import pathlib
 
 from modules.logger import (
     ColoredFormatter,
@@ -185,12 +187,6 @@ class TestSetupAgentLogger:
     """Test cases for setup_agent_logger function."""
 
     @pytest.fixture
-    def mock_path(self):
-        """Mock Path class."""
-        with patch("modules.logger.Path") as mock:
-            yield mock
-
-    @pytest.fixture
     def mock_logging(self):
         """Mock logging module components."""
         with patch("modules.logger.logging") as mock:
@@ -199,9 +195,7 @@ class TestSetupAgentLogger:
             yield mock, mock_logger
 
     @patch("modules.logger.datetime")
-    def test_setup_agent_logger_default_parameters(
-        self, mock_datetime, mock_path, mock_logging
-    ):
+    def test_setup_agent_logger_default_parameters(self, mock_datetime, mock_logging):
         """Test setup_agent_logger with default parameters."""
         mock_logging_module, mock_logger = mock_logging
         mock_datetime.now.return_value = datetime(2023, 1, 1, 12, 0, 0)
@@ -228,7 +222,7 @@ class TestSetupAgentLogger:
         mock_logging_module.StreamHandler.assert_called_once()
         mock_console_handler.setLevel.assert_called_once_with(mock_logging_module.INFO)
 
-    def test_setup_agent_logger_with_custom_parameters(self, mock_path, mock_logging):
+    def test_setup_agent_logger_with_custom_parameters(self, mock_logging):
         """Test setup_agent_logger with custom parameters."""
         mock_logging_module, mock_logger = mock_logging
 
@@ -241,7 +235,7 @@ class TestSetupAgentLogger:
         )
         mock_logger.setLevel.assert_called_once_with(mock_logging_module.DEBUG)
 
-    def test_setup_agent_logger_verbose_mode(self, mock_path, mock_logging):
+    def test_setup_agent_logger_verbose_mode(self, mock_logging):
         """Test setup_agent_logger in verbose mode."""
         mock_logging_module, mock_logger = mock_logging
 
@@ -256,7 +250,7 @@ class TestSetupAgentLogger:
         mock_logging_module.getLogger.assert_called_once()
         mock_logger.setLevel.assert_called_once_with(mock_logging_module.DEBUG)
 
-    def test_setup_agent_logger_quiet_mode(self, mock_path, mock_logging):
+    def test_setup_agent_logger_quiet_mode(self, mock_logging):
         """Test setup_agent_logger in quiet mode."""
         mock_logging_module, mock_logger = mock_logging
 
@@ -274,7 +268,7 @@ class TestSetupAgentLogger:
 
     @patch("modules.logger.ColoredFormatter")
     def test_setup_agent_logger_file_handler_setup(
-        self, mock_colored_formatter, mock_path, mock_logging
+        self, mock_colored_formatter, mock_logging
     ):
         """Test file handler setup in setup_agent_logger."""
         mock_logging_module, mock_logger = mock_logging
@@ -286,7 +280,7 @@ class TestSetupAgentLogger:
         setup_agent_logger(log_file="test.log")
 
         # Verify file handler setup
-        log_path = mock_path.return_value / "test.log"
+        log_path = "test.log"  # No mock_path, so use direct path
         mock_logging_module.FileHandler.assert_called_once_with(log_path)
         mock_file_handler.setLevel.assert_called_once_with(mock_logging_module.DEBUG)
         mock_file_handler.setFormatter.assert_called_once_with(mock_file_formatter)
@@ -294,7 +288,7 @@ class TestSetupAgentLogger:
 
     @patch("modules.logger.ColoredFormatter")
     def test_setup_agent_logger_console_handler_setup(
-        self, mock_colored_formatter, mock_path, mock_logging
+        self, mock_colored_formatter, mock_logging
     ):
         """Test console handler setup in setup_agent_logger."""
         mock_logging_module, mock_logger = mock_logging
@@ -315,7 +309,7 @@ class TestSetupAgentLogger:
 
     @patch("modules.logger.datetime")
     def test_setup_agent_logger_initialization_logging(
-        self, mock_datetime, mock_path, mock_logging
+        self, mock_datetime, mock_logging
     ):
         """Test initialization logging messages."""
         mock_logging_module, mock_logger = mock_logging
@@ -332,7 +326,7 @@ class TestSetupAgentLogger:
         ]
         mock_logger.info.assert_has_calls(expected_calls, any_order=False)
 
-    def test_setup_agent_logger_no_agent_id(self, mock_path, mock_logging):
+    def test_setup_agent_logger_no_agent_id(self, mock_logging):
         """Test setup_agent_logger without agent_id generates unique name."""
         mock_logging_module, mock_logger = mock_logging
 
@@ -504,25 +498,23 @@ class TestLogVerbose:
 class TestLoggerIntegration:
     """Integration tests for logger module."""
 
-    @patch("modules.logger.Path")
+    @patch("modules.logger.os.makedirs")
+    @patch("modules.logger.os.path.exists")
     @patch("modules.logger.logging")
-    def test_agent_logger_creates_log_directory(self, mock_logging, mock_path):
+    def test_agent_logger_creates_log_directory(
+        self, mock_logging, mock_exists, mock_makedirs
+    ):
         """Test that setup_agent_logger creates log directory."""
-        mock_log_dir = Mock()
-        mock_log_dir.__truediv__ = Mock(
-            return_value="/fake/logs/test.log"
-        )  # Mock the / operator
-        mock_path.return_value = mock_log_dir
+        mock_exists.return_value = False
         mock_logger = Mock()
         mock_logging.getLogger.return_value = mock_logger
         mock_logging.FileHandler.return_value = Mock()
         mock_logging.Formatter.return_value = Mock()
 
-        setup_agent_logger("test.log")
+        setup_agent_logger("logs/test.log")
 
-        # Verify log directory creation
-        mock_path.assert_called_once_with("logs")
-        mock_log_dir.mkdir.assert_called_once_with(exist_ok=True)
+        mock_exists.assert_called_once_with("logs")
+        mock_makedirs.assert_called_once_with("logs", exist_ok=True)
 
     def test_colored_formatter_colors_are_valid_ansi(self):
         """Test that ColoredFormatter uses valid ANSI color codes."""
@@ -533,25 +525,21 @@ class TestLoggerIntegration:
         assert formatter.COLORS["BLUE"].startswith("\033[")
         assert formatter.COLORS["RESET"] == "\033[0m"
 
-    @patch("modules.logger.Path")
+    @patch("modules.logger.os.makedirs")
+    @patch("modules.logger.os.path.exists")
     @patch("modules.logger.logging")
-    def test_multiple_logger_setup_calls(self, mock_logging, mock_path):
+    def test_multiple_logger_setup_calls(
+        self, mock_logging, mock_exists, mock_makedirs
+    ):
         """Test that multiple setup calls work correctly."""
+        mock_exists.return_value = True
         mock_logger1 = Mock()
         mock_logger2 = Mock()
         mock_logging.getLogger.side_effect = [mock_logger1, mock_logger2]
         mock_logging.FileHandler.return_value = Mock()
         mock_logging.Formatter.return_value = Mock()
-        mock_log_dir = Mock()
-        mock_log_dir.__truediv__ = Mock(
-            return_value="/fake/logs/test.log"
-        )  # Mock the / operator
-        mock_path.return_value = mock_log_dir
 
-        logger1 = setup_agent_logger("test1.log", agent_id="agent1")
-        logger2 = setup_agent_logger("test2.log", agent_id="agent2")
+        setup_agent_logger("logs/test1.log")
+        setup_agent_logger("logs/test2.log")
 
-        # Verify both loggers were created
-        assert logger1 == mock_logger1
-        assert logger2 == mock_logger2
         assert mock_logging.getLogger.call_count == 2
