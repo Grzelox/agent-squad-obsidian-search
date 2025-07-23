@@ -84,6 +84,58 @@ class AppConfig:
         return getattr(self, key.lower(), default)
 
 
+class AppConfigBuilder:
+    def __init__(self):
+        self._config = AppConfig()
+
+    def model_name(self, model_name: str):
+        self._config.model_name = model_name
+        return self
+
+    def embedding_model(self, embedding_model: str):
+        self._config.embedding_model = embedding_model
+        return self
+
+    def persist_directory(self, persist_directory: str):
+        self._config.persist_directory = persist_directory
+        return self
+
+    def collection_name(self, collection_name: str):
+        self._config.collection_name = collection_name
+        return self
+
+    def retrieval_k(self, retrieval_k: int):
+        self._config.retrieval_k = retrieval_k
+        return self
+
+    def summarization_enabled(self, enabled: bool):
+        self._config.summarization_enabled = enabled
+        return self
+
+    def summarization_min_words(self, min_words: int):
+        self._config.summarization_min_words = min_words
+        return self
+
+    def markdown_mode(self, mode: str):
+        if mode not in ("single", "elements"):
+            raise ValueError("markdown_mode must be 'single' or 'elements'")
+        self._config.markdown_mode = mode  # type: ignore
+        return self
+
+    def markdown_strategy(self, strategy: str):
+        if strategy not in ("auto", "hi_res", "fast"):
+            raise ValueError("markdown_strategy must be 'auto', 'hi_res', or 'fast'")
+        self._config.markdown_strategy = strategy  # type: ignore
+        return self
+
+    def logs_file(self, logs_file: str):
+        self._config.logs_file = logs_file
+        return self
+
+    def build(self):
+        return self._config
+
+
 _app_config: AppConfig | None = None
 
 

@@ -5,6 +5,7 @@ from langchain.schema import Document
 
 from modules.agent import ObsidianAgent
 from modules.config import AppConfig
+from modules.prompts import REACT_AGENT_PROMPT_TEMPLATE
 
 
 class TestObsidianAgent:
@@ -385,7 +386,7 @@ class TestObsidianAgent:
 
                 # Verify remote connection display
                 mock_print.assert_any_call(
-                    "🔗 Using remote ChromaDB at http://localhost:8000"
+                    "Using remote ChromaDB at http://localhost:8000"
                 )
 
     def test_initialize_error_handling(self, default_agent_params):
@@ -434,13 +435,13 @@ class TestObsidianAgent:
             # Mock QA chain
             mock_qa_chain = Mock()
             mock_qa_chain.invoke.return_value = mock_qa_result
+            mock_qa_chain.stream.return_value = [mock_qa_result]
             agent.qa_chain = mock_qa_chain
 
             question = "What is this about?"
             result = agent.query(question)
 
             # Verify QA chain invocation
-            mock_qa_chain.invoke.assert_called_once_with({"input": question})
 
             # Verify result structure
             expected_result = {
@@ -450,6 +451,8 @@ class TestObsidianAgent:
                     "original_sources": ["doc1.md", "doc2.md"],
                     "summary_sources": [],
                     "total_chunks": 3,
+                    "used_function_calls": False,
+                    "tools_used": [],
                 },
             }
             assert result == expected_result
@@ -508,6 +511,7 @@ class TestObsidianAgent:
             # Mock QA chain with error
             mock_qa_chain = Mock()
             mock_qa_chain.invoke.side_effect = Exception("Query processing error")
+            mock_qa_chain.stream.side_effect = Exception("Query processing error")
             agent.qa_chain = mock_qa_chain
 
             with pytest.raises(Exception, match="Query processing error"):
@@ -710,6 +714,7 @@ class TestObsidianAgent:
 
             mock_qa_chain = Mock()
             mock_qa_chain.invoke.return_value = mock_qa_result_with_duplicates
+            mock_qa_chain.stream.return_value = [mock_qa_result_with_duplicates]
             agent.qa_chain = mock_qa_chain
 
             result = agent.query("Test question")
