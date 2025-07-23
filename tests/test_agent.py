@@ -454,6 +454,7 @@ class TestObsidianAgent:
                     "used_function_calls": False,
                     "tools_used": [],
                 },
+                "mode": "rag",
             }
             assert result == expected_result
 
