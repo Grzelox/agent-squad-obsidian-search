@@ -85,7 +85,7 @@ class TestObsidianTools:
         """Test getting tools for agent."""
         tools = get_tools_for_agent("/test/vault")
 
-        assert len(tools) == 3
+        assert len(tools) == 4
         assert all(hasattr(tool, "name") for tool in tools)
         assert all(hasattr(tool, "description") for tool in tools)
 
