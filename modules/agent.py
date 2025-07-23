@@ -167,7 +167,9 @@ class ObsidianAgent:
         try:
             for chunk in self.qa_chain.stream({"input": question}):
                 if "answer" in chunk:
-                    print(chunk["answer"], end="", flush=True)
+                    print(
+                        chunk["answer"], end="", flush=True
+                    )  # Removed streaming print
                     streamed_answer += chunk["answer"]
                 result = chunk
             print()
@@ -186,6 +188,7 @@ class ObsidianAgent:
                     "used_function_calls": False,
                     "tools_used": [],
                 },
+                "mode": "rag",
             }
         all_sources = []
         summary_sources = []
@@ -231,6 +234,7 @@ class ObsidianAgent:
                 "used_function_calls": False,
                 "tools_used": [],
             },
+            "mode": "rag",
         }
         return response
 
@@ -393,6 +397,7 @@ class ObsidianAgent:
                         "used_function_calls": True,
                         "tools_used": ["list_obsidian_documents"],
                     },
+                    "mode": "manual",
                 }
 
             elif any(
@@ -432,6 +437,7 @@ class ObsidianAgent:
                         "used_function_calls": True,
                         "tools_used": ["search_documents_by_name"],
                     },
+                    "mode": "manual",
                 }
 
             else:
@@ -456,6 +462,7 @@ class ObsidianAgent:
                         "used_function_calls": True,
                         "tools_used": ["list_obsidian_documents"],
                     },
+                    "mode": "manual",
                 }
 
         except Exception as e:
@@ -470,6 +477,7 @@ class ObsidianAgent:
                     "used_function_calls": False,
                     "tools_used": [],
                 },
+                "mode": "manual",
             }
 
     def get_document_summaries(self) -> dict:

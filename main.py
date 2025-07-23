@@ -1,14 +1,129 @@
 from modules.agent import ObsidianAgent
 from modules.config import AppConfig
-
-
 import click
 from pathlib import Path
+from typing import Any
 
 from modules import VaultCopyService, setup_cli_logger
 from modules.cli_config import cli_options
 from modules.config import AppConfigBuilder
 from modules.agent import ObsidianAgentBuilder
+
+
+def handle_summaries(agent: ObsidianAgent) -> None:
+    """Display all document summaries."""
+    try:
+        summaries = agent.get_document_summaries()
+        if not summaries:
+            click.echo("No document summaries found.")
+        else:
+            click.echo(f"\n📚 Document Summaries ({len(summaries)} documents):")
+            click.echo("=" * 60)
+            for doc_path, info in summaries.items():
+                click.echo(f"\n📄 {doc_path}")
+                click.echo(f"Words: {info.get('word_count', 'unknown')}")
+                click.echo(f"Summary: {info['summary']}")
+                click.echo("-" * 40)
+        click.echo("\n" + "=" * 50 + "\n")
+    except Exception as e:
+        click.echo(f"Error retrieving summaries: {e}")
+
+
+def handle_stats(agent: ObsidianAgent) -> None:
+    """Display summarization statistics."""
+    try:
+        stats = agent.get_summarized_documents_stats()
+        click.echo(f"\nSummarization Statistics:")
+        click.echo("=" * 40)
+        click.echo(f"Total summarized documents: {stats['total_summaries']}")
+        click.echo(f"Average word count: {stats['avg_word_count']}")
+        if stats["documents"]:
+            click.echo(f"\nSummarized documents:")
+            for doc in stats["documents"]:
+                click.echo(f"  - {doc}")
+        click.echo("\n" + "=" * 50 + "\n")
+    except Exception as e:
+        click.echo(f"Error retrieving statistics: {e}")
+
+
+def handle_query(
+    agent: ObsidianAgent,
+    config: AppConfig,
+    question: str,
+    query_count: int,
+    main_logger: Any,
+) -> None:
+    """Process a user query and display the result."""
+    try:
+        main_logger.info(f"Processing query #{query_count}")
+        result = agent.query(question)
+
+        if result.get("mode") in ("react", "manual"):
+            click.echo(f"\nAnswer:")
+            click.echo(f"{result['answer']}")
+
+        source_details = result.get("source_details", {})
+        used_function_calls = source_details.get("used_function_calls", False)
+
+        if used_function_calls:
+            tools_used = source_details.get("tools_used", [])
+            click.echo(f"\nFunction calls used:")
+            for tool in tools_used:
+                click.echo(f"  - {tool}")
+
+        if result["sources"] and not used_function_calls:
+            click.echo(f"\nSources:")
+
+            original_sources = source_details.get("original_sources", [])
+            summary_sources = source_details.get("summary_sources", [])
+
+            if original_sources:
+                click.echo(f"\nOriginal content ({len(original_sources)} documents):")
+                for source in original_sources:
+                    click.echo(f"  - {source}")
+                    if config.summarization_enabled:
+                        summary = agent.get_summary_for_document(source)
+                        if summary:
+                            click.echo(f"    📝 Summary: {summary}")
+
+            if summary_sources:
+                click.echo(f"\nSummary content ({len(summary_sources)} summaries):")
+                for source in summary_sources:
+                    click.echo(f"  - {source}")
+
+            total_chunks = source_details.get("total_chunks", len(result["sources"]))
+            if config.summarization_enabled and (original_sources or summary_sources):
+                click.echo(
+                    f"\nRetrieved {total_chunks} chunks total from original + summary content"
+                )
+        elif result["sources"] and used_function_calls:
+            click.echo(f"\nResponse generated using function calls")
+
+        click.echo("\n" + "=" * 50 + "\n")
+        main_logger.info(f"Query #{query_count} completed successfully")
+
+    except Exception as e:
+        main_logger.error(f"Error processing query #{query_count}: {str(e)}")
+        click.echo(f"Error processing question: {e}")
+
+
+def interactive_loop(agent: ObsidianAgent, config: AppConfig, main_logger: Any) -> None:
+    """Run the interactive CLI loop for user queries."""
+    query_count = 0
+    while True:
+        question = click.prompt("Ask a question", type=str)
+        if question.lower() in ["quit", "exit", "q"]:
+            main_logger.info(f"User exited after {query_count} queries")
+            break
+        elif question.lower() in ["summaries", "list summaries"]:
+            handle_summaries(agent)
+            continue
+        elif question.lower() in ["stats", "statistics", "summary stats"]:
+            handle_stats(agent)
+            continue
+        else:
+            handle_query(agent, config, question, query_count + 1, main_logger)
+            query_count += 1
 
 
 @click.command()
@@ -33,31 +148,7 @@ def main(
 
     An intelligent search agent that copies your Obsidian vault to a working directory,
     indexes it, and allows you to query your knowledge base using natural language.
-
-    Features include:
-    - Function calling capabilities to list, search, and analyze vault documents
-    - Optional document summarization for long documents
-    - Enhanced markdown parsing with UnstructuredMarkdownLoader
-    - Special commands to view summaries and statistics
-
-    The agent can answer questions about document content AND perform vault management tasks
-    like listing available documents, searching by filename, and providing document metadata.
-
-    Configuration can be provided via environment variables or CLI arguments.
-    CLI arguments take precedence over environment variables.
-
-    Examples:
-        python main.py -v "/path/to/vault"
-        python main.py -v "/path/to/vault" -d "./my_working_vault"
-        python main.py -v "/path/to/vault" -m llama2 -r
-        python main.py -v "/path/to/vault" --chroma-host localhost --chroma-port 8000
-        python main.py -v "/path/to/vault" --verbose
-        python main.py -v "/path/to/vault" --quiet
-        python main.py -v "/path/to/vault" --enable-summarization --summarization-min-words 300
-        python main.py -v "/path/to/vault" --markdown-mode elements --markdown-strategy hi_res
-        python main.py -v "/path/to/vault" --enable-summarization --markdown-mode elements --verbose
     """
-
     if verbose and quiet:
         click.echo("Error: --verbose and --quiet cannot be used together", err=True)
         raise click.Abort()
@@ -73,7 +164,6 @@ def main(
         .markdown_strategy(markdown_strategy)
         .build()
     )
-
     main_logger = setup_cli_logger(verbose=verbose, quiet=quiet)
 
     main_logger.info(
@@ -98,7 +188,6 @@ def main(
 
     try:
         vault_copy_service = VaultCopyService(main_logger)
-
         destination_path = Path(destination)
         click.echo(f"Copying vault from '{vault_path}' to '{destination_path}'...")
         working_vault_path = vault_copy_service.copy_vault(vault_path, destination_path)
@@ -118,7 +207,6 @@ def main(
             .quiet(quiet)
             .build()
         )
-
         agent.initialize(force_rebuild=rebuild)
 
         if chroma_host:
@@ -141,113 +229,7 @@ def main(
         click.echo("  - Ask 'tell me about document [filename]' for file details")
         click.echo()
 
-        query_count = 0
-        while True:
-            question = click.prompt("Ask a question", type=str)
-
-            if question.lower() in ["quit", "exit", "q"]:
-                main_logger.info(f"User exited after {query_count} queries")
-                break
-
-            if question.lower() in ["summaries", "list summaries"]:
-                try:
-                    summaries = agent.get_document_summaries()
-                    if not summaries:
-                        click.echo("No document summaries found.")
-                    else:
-                        click.echo(
-                            f"\n📚 Document Summaries ({len(summaries)} documents):"
-                        )
-                        click.echo("=" * 60)
-                        for doc_path, info in summaries.items():
-                            click.echo(f"\n📄 {doc_path}")
-                            click.echo(f"Words: {info.get('word_count', 'unknown')}")
-                            click.echo(f"Summary: {info['summary']}")
-                            click.echo("-" * 40)
-                    click.echo("\n" + "=" * 50 + "\n")
-                    continue
-                except Exception as e:
-                    click.echo(f"Error retrieving summaries: {e}")
-                    continue
-
-            if question.lower() in ["stats", "statistics", "summary stats"]:
-                try:
-                    stats = agent.get_summarized_documents_stats()
-                    click.echo(f"\nSummarization Statistics:")
-                    click.echo("=" * 40)
-                    click.echo(
-                        f"Total summarized documents: {stats['total_summaries']}"
-                    )
-                    click.echo(f"Average word count: {stats['avg_word_count']}")
-                    if stats["documents"]:
-                        click.echo(f"\nSummarized documents:")
-                        for doc in stats["documents"]:
-                            click.echo(f"  - {doc}")
-                    click.echo("\n" + "=" * 50 + "\n")
-                    continue
-                except Exception as e:
-                    click.echo(f"Error retrieving statistics: {e}")
-                    continue
-
-            try:
-                query_count += 1
-                main_logger.info(f"Processing query #{query_count}")
-                result = agent.query(question)
-
-                click.echo(f"\nAnswer:")
-                click.echo(f"{result['answer']}")
-
-                source_details = result.get("source_details", {})
-                used_function_calls = source_details.get("used_function_calls", False)
-
-                if used_function_calls:
-                    tools_used = source_details.get("tools_used", [])
-                    click.echo(f"\nFunction calls used:")
-                    for tool in tools_used:
-                        click.echo(f"  - {tool}")
-
-                if result["sources"] and not used_function_calls:
-                    click.echo(f"\nSources:")
-
-                    original_sources = source_details.get("original_sources", [])
-                    summary_sources = source_details.get("summary_sources", [])
-
-                    if original_sources:
-                        click.echo(
-                            f"\nOriginal content ({len(original_sources)} documents):"
-                        )
-                        for source in original_sources:
-                            click.echo(f"  - {source}")
-                            if config.summarization_enabled:
-                                summary = agent.get_summary_for_document(source)
-                                if summary:
-                                    click.echo(f"    📝 Summary: {summary}")
-
-                    if summary_sources:
-                        click.echo(
-                            f"\nSummary content ({len(summary_sources)} summaries):"
-                        )
-                        for source in summary_sources:
-                            click.echo(f"  - {source}")
-
-                    total_chunks = source_details.get(
-                        "total_chunks", len(result["sources"])
-                    )
-                    if config.summarization_enabled and (
-                        original_sources or summary_sources
-                    ):
-                        click.echo(
-                            f"\nRetrieved {total_chunks} chunks total from original + summary content"
-                        )
-                elif result["sources"] and used_function_calls:
-                    click.echo(f"\nResponse generated using function calls")
-
-                click.echo("\n" + "=" * 50 + "\n")
-                main_logger.info(f"Query #{query_count} completed successfully")
-
-            except Exception as e:
-                main_logger.error(f"Error processing query #{query_count}: {str(e)}")
-                click.echo(f"Error processing question: {e}")
+        interactive_loop(agent, config, main_logger)
 
     except Exception as e:
         main_logger.error(f"Critical error in main: {str(e)}")

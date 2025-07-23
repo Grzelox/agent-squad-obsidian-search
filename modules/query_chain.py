@@ -57,6 +57,7 @@ class ReActHandler(QueryHandler):
                                 for step in agent_result["intermediate_steps"]
                             ],
                         },
+                        "mode": "react",
                     }
             except Exception as e:
                 self.agent.logger.error(f"ReActHandler failed: {str(e)}")
